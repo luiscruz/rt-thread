@@ -59,7 +59,8 @@
 /* SECTION: Device System */
 /* Using Device System */
 #define RT_USING_DEVICE
-#define RT_USING_UART1
+/* USART debug port: PA2,PA3 */
+#define RT_USING_UART2
 
 /* SECTION: Console options */
 #define RT_USING_CONSOLE

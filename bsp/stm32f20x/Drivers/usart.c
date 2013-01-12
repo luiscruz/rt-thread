@@ -130,6 +130,12 @@ static void RCC_Configuration(void)
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_USART1, ENABLE);
 #endif
 
+#ifdef RT_USING_UART2
+	/* Enable USART2 and GPIOA, A2,A3, clocks */
+	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOA, ENABLE);
+	RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART2, ENABLE);
+#endif
+
 #ifdef RT_USING_UART6
 	/* Enable USART6 and GPIOC clocks */
 	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOC, ENABLE);
@@ -154,6 +160,19 @@ static void GPIO_Configuration(void)
 	GPIO_PinAFConfig(GPIOA, GPIO_PinSource10, GPIO_AF_USART1);
 #endif
 
+#ifdef RT_USING_UART2
+	GPIO_InitStruct.GPIO_Mode=GPIO_Mode_AF;
+	GPIO_InitStruct.GPIO_Speed=GPIO_Speed_50MHz;
+	GPIO_InitStruct.GPIO_OType=GPIO_OType_PP;
+	GPIO_InitStruct.GPIO_PuPd=GPIO_PuPd_UP;
+
+	GPIO_InitStruct.GPIO_Pin=GPIO_Pin_2|GPIO_Pin_3;
+	GPIO_Init(GPIOA,&GPIO_InitStruct);
+
+	GPIO_PinAFConfig(GPIOA, GPIO_PinSource2, GPIO_AF_USART2);
+	GPIO_PinAFConfig(GPIOA, GPIO_PinSource3, GPIO_AF_USART2);
+#endif
+
 #ifdef RT_USING_UART6
 	GPIO_InitStruct.GPIO_Mode=GPIO_Mode_AF;
 	GPIO_InitStruct.GPIO_Speed=GPIO_Speed_50MHz;
@@ -175,6 +194,15 @@ static void NVIC_Configuration(void)
 #ifdef RT_USING_UART1
 	/* Enable the USART1 Interrupt */
 	NVIC_InitStructure.NVIC_IRQChannel = USART1_IRQn;
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
+	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
+	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+	NVIC_Init(&NVIC_InitStructure);
+#endif
+
+#ifdef RT_USING_UART2
+	/* Enable the USART2 Interrupt */
+	NVIC_InitStructure.NVIC_IRQChannel = USART2_IRQn;
 	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
 	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
 	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
@@ -229,6 +257,29 @@ void rt_hw_usart_init()
 	USART_ClearFlag(USART1,USART_FLAG_TXE);
 #endif
 
+#ifdef RT_USING_UART2
+	USART_DeInit(USART2);
+	USART_InitStructure.USART_BaudRate            = 115200;
+	USART_InitStructure.USART_WordLength          = USART_WordLength_8b;
+	USART_InitStructure.USART_StopBits            = USART_StopBits_1;
+	USART_InitStructure.USART_Parity              = USART_Parity_No ;
+	USART_InitStructure.USART_HardwareFlowControl = USART_HardwareFlowControl_None;
+	USART_InitStructure.USART_Mode                = USART_Mode_Rx | USART_Mode_Tx;
+
+	USART_Init(USART2, &USART_InitStructure);
+
+	/* register uart2 */
+	rt_hw_serial_register(&uart2_device, "uart2",
+		RT_DEVICE_FLAG_RDWR | RT_DEVICE_FLAG_INT_RX | RT_DEVICE_FLAG_STREAM,
+		&uart2);
+
+	/* enable interrupt */
+	USART_ITConfig(USART2, USART_IT_RXNE, ENABLE);
+	/* Enable USART2 */
+	USART_Cmd(USART2, ENABLE);
+	USART_ClearFlag(USART2,USART_FLAG_TXE);
+#endif
+
 	/* uart init */
 #ifdef RT_USING_UART6
 	USART_DeInit(USART6);
@@ -261,6 +312,19 @@ void USART1_IRQHandler()
     rt_interrupt_enter();
 
     rt_hw_serial_isr(&uart1_device);
+
+    /* leave interrupt */
+    rt_interrupt_leave();
+}
+#endif
+
+#ifdef RT_USING_UART2
+void USART2_IRQHandler()
+{
+    /* enter interrupt */
+    rt_interrupt_enter();
+
+    rt_hw_serial_isr(&uart2_device);
 
     /* leave interrupt */
     rt_interrupt_leave();
