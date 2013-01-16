@@ -10,3 +10,8 @@
 *.idb
 *.ilk
 build
+.svn
+.o
+.d
+.bak
+bsp/stm32f20x/obj/
