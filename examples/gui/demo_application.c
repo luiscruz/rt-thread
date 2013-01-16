@@ -89,7 +89,7 @@ static void application_entry(void *parameter)
     demo_view_textbox();
     demo_view_listbox();
     demo_view_menu();
-    demo_view_listctrl();
+    //demo_view_listctrl();
     demo_view_combobox();
     demo_view_slider();
     demo_view_notebook();

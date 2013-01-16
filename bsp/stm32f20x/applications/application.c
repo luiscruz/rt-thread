@@ -36,6 +36,13 @@
 #include "stm32f2x7_eth.h"
 #endif
 
+#ifdef RT_USING_RTGUI
+#include <rtgui/rtgui.h>
+#include <rtgui/rtgui_server.h>
+#include <rtgui/rtgui_system.h>
+#include <rtgui/driver.h>
+#endif
+
 void rt_init_thread_entry(void* parameter)
 {
 /* Filesystem Initialization */
@@ -66,10 +73,10 @@ void rt_init_thread_entry(void* parameter)
 
 		/* register ethernetif device */
 		eth_system_device_init();
-	
+
 		/* initialize eth interface */
 		rt_hw_stm32_eth_init();
-	
+
 		/* re-init device driver */
 		rt_device_init_all();
 
@@ -78,6 +85,33 @@ void rt_init_thread_entry(void* parameter)
 		rt_kprintf("TCP/IP initialized!\n");
 	}
 #endif
+#ifdef RT_USING_RTGUI
+	{
+	    extern void rtgui_system_server_init(void);
+	    extern void rt_hw_lcd_init();
+	    //extern void rtgui_touch_hw_init(void);
+		rt_device_t lcd;
+
+		/* init lcd */
+		rt_hw_lcd_init();
+
+		/* init touch panel */
+		//rtgui_touch_hw_init();
+
+		/* re-init device driver ??? why */
+		rt_device_init_all();
+
+		/* find lcd device */
+		lcd = rt_device_find("lcd");
+
+		/* set lcd device as rtgui graphic driver */
+		rtgui_graphic_set_device(lcd);
+
+		/* init rtgui system server */
+		rtgui_system_server_init();
+
+	}
+#endif /* #ifdef RT_USING_RTGUI */
 }
 
 int rt_application_init()

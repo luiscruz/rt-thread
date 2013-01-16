@@ -16,6 +16,7 @@
 #include <rtthread.h>
 
 #include <stm32f2xx.h>
+#include "rtc.h"
 #include "board.h"
 
 /**
