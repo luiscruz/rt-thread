@@ -64,6 +64,19 @@ lcd_inline void rw_data_prepare(void)
   write_cmd(LCD_REG_34);
 }
 
+//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+//  Delay Time : 120MHZ => 1cycle = 8ns
+// 1us = 120 cycles
+//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+void uDelay(rt_uint16_t u)
+{
+	while(u--)
+	{
+		rt_uint16_t i;
+		for(i=0;i<120;i++);
+	};
+}
+
 /********* control  ***********/
 
 static unsigned short deviceid=0;
@@ -426,48 +439,32 @@ static void Screen_Saver_Control(unsigned char a, unsigned char b, unsigned char
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 static void Fade_In()
 {
-unsigned int i;
-
 	Set_Display_On_Off(0x01);
 	Set_Power_Save(0x04);
-	//for(i=0;i<200;i++)
-	{
-		rt_thread_delay(20);
-	}
+	rt_thread_delay(4);		/* 40 ms, 1 tick= 10ms */
 	Set_Power_Save(0x00);
-	//for(i=0;i<200;i++)
-	{
-		rt_thread_delay(20);
-	}
+	rt_thread_delay(4);		/* 40 ms, 1 tick= 10ms */
 }
-
 
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 //  Fade Out (Full Screen)
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 static void Fade_Out()
 {
-unsigned int i;
-
 	Set_Power_Save(0x00);
-	//for(i=0;i<200;i++)
-	{
-		rt_thread_delay(20);
-	}
+	rt_thread_delay(4);		/* 40 ms, 1 tick= 10ms */
 	Set_Power_Save(0x04);
-	//for(i=0;i<200;i++)
-	{
-		rt_thread_delay(20);
-	}
+	rt_thread_delay(4);		/* 40 ms, 1 tick= 10ms */
 	Set_Display_On_Off(0x00);
 
+#if 0
 	WISECHIP_OLED_VCC_DIS;	/*Power Down VCC */
 
 	rt_thread_delay(100);
 	WISECHIP_OLED_VDD_DIS;
 	WISECHIP_OLED_VDDIO_DIS;
+#endif
 }
-
 
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 //  Sleep Mode
@@ -483,46 +480,20 @@ static void Sleep(unsigned char a)
 			Set_Display_On_Off(0x00);
 			Set_Display_Mode(0x02);
 			Set_Power_Save(0x01);
-			rt_thread_delay(20);
+			uDelay(200);
 			break;
 		case 1:
 			Set_Power_Save(0x00);
-			rt_thread_delay(20);
+			uDelay(200);
 			Set_Power_Save(0x01);
-			rt_thread_delay(20);
+			uDelay(200);
 			Set_Power_Save(0x00);
-			rt_thread_delay(20);
+			uDelay(200);
 			Set_Display_Mode(0x00);
 			Set_Display_On_Off(0x01);
 			break;
 	}
 }
-
-//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-//  Connection Test
-//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-static void lcd_data_bus_test()
-{
-unsigned char i;
-
-	WISECHIP_OLED_F01_RESETB_EN;
-	for(i=0;i<200;i++)
-	{
-		rt_thread_delay(20);
-	}
-	WISECHIP_OLED_F01_RESETB_DIS;
-
-	Set_Display_Mode(0x02);			// Entire Display On Mode
-
-	while(1)
-	{
-		Set_Display_On_Off(0x01);	// Display On
-		rt_thread_delay(2);
-		Set_Display_On_Off(0x00);	// Display Off
-		rt_thread_delay(2);
-	}
-}
-
 
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 //  Gray Scale Table Setting (Full Screen)
@@ -1022,26 +993,26 @@ static void f01_test(void)
 
 	// All Pixels On (Test Pattern)
 		Fill_RAM(0xFF,0xFF);
-		rt_thread_delay(10);
+		rt_thread_delay(1);
 
 	// Checkerboard (Test Pattern)
 	//	Checkerboard();
-		rt_thread_delay(10);
+		rt_thread_delay(1);
 
 	// Color Bar (Test Pattern)
 		//Rainbow();
-		rt_thread_delay(10);
+		rt_thread_delay(1);
 
 	// Show Pattern - Frame (Test Pattern)
 		Fill_RAM(0x00,0x00);		// Clear Screen
 //		Draw_Rectangle(0x00,Max_Column,0x00,Max_Row,0x01,0xFF,0xFF);
-		rt_thread_delay(10);
+		rt_thread_delay(1);
 		//Draw_Rectangle(0x10,0x8F,0x10,0x6F,0x01,0xF8,0x00);
-		rt_thread_delay(10);
+		rt_thread_delay(1);
 		//Draw_Rectangle(0x20,0x7F,0x20,0x5F,0x01,0x07,0xE0);
-		rt_thread_delay(10);
+		rt_thread_delay(1);
 		//Draw_Rectangle(0x30,0x6F,0x30,0x4F,0x01,0x00,0x1F);
-		rt_thread_delay(10);
+		rt_thread_delay(1);
 	}
 }
 
@@ -1061,11 +1032,11 @@ unsigned int wisechip_f01_init(unsigned int lcdid)
     WISECHIP_OLED_F01_RESETB_DIS;
 
 	Set_Power_Save(0x01);			// Set Normal Driving Current
-	rt_thread_delay(20);				//     Disable Oscillator Power Down
-						//     Enable Power Save Mode
+	uDelay(200);					//     Disable Oscillator Power Down
+									//     Enable Power Save Mode
 	Set_Power_Save(0x00);			// Set Normal Driving Current
-	rt_thread_delay(20);				//     Disable Oscillator Power Down
-						//     Disable Power Save Mode
+	uDelay(200);					//     Disable Oscillator Power Down
+									//     Disable Power Save Mode
 	Software_Reset(0x00);			// Set All Internal Register Value as Normal Mode
 	Set_Display_On_Off(0x00);		// Display Off (0x00/0x01)
 	Set_Clock_Control(0x01);		// Set EXPORT1 Pin at Internal Clock
@@ -1109,7 +1080,7 @@ unsigned int wisechip_f01_init(unsigned int lcdid)
 
 	/*Power up VCC*/
 	WISECHIP_OLED_VCC_EN;	//VDDH
-	rt_thread_delay(100);	/* 100ms */
+	rt_thread_delay(10);	/* 100ms */
 
 	Set_Display_On_Off(0x01);		// Display On (0x00/0x01)
 	return 0;
@@ -1125,7 +1096,6 @@ void seps525_init(void)
 	wisechip_f01_init(deviceid); /* wisechip F01 oled panel */
 
 //	f01_test();
-//    lcd_data_bus_test();
 //    lcd_gram_test();
 }
 
@@ -1150,7 +1120,7 @@ void seps525_init(void)
   */
 void LCD_CtrlLinesConfig(void)
 {
-  GPIO_InitTypeDef GPIO_InitStructure;
+  	GPIO_InitTypeDef GPIO_InitStructure;
 
   	/* Enable FSMC clock */
   	RCC_AHB3PeriphClockCmd(RCC_AHB3Periph_FSMC, ENABLE);
@@ -1159,40 +1129,40 @@ void LCD_CtrlLinesConfig(void)
                          RCC_AHB1Periph_GPIOF, ENABLE);
 
 /*-- GPIO Configuration ------------------------------------------------------*/
-  /* SRAM Data lines,  NOE and NWE configuration */
+  	/* SRAM Data lines,  NOE and NWE configuration */
 	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0 | GPIO_Pin_1 | GPIO_Pin_14 | GPIO_Pin_15 |
                                 GPIO_Pin_4 |GPIO_Pin_5;
 
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  GPIO_InitStructure.GPIO_PuPd  = GPIO_PuPd_NOPULL;
-  GPIO_Init(GPIOD, &GPIO_InitStructure);
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
+	GPIO_InitStructure.GPIO_PuPd  = GPIO_PuPd_NOPULL;
+	GPIO_Init(GPIOD, &GPIO_InitStructure);
 
-  GPIO_PinAFConfig(GPIOD, GPIO_PinSource0, GPIO_AF_FSMC);
-  GPIO_PinAFConfig(GPIOD, GPIO_PinSource1, GPIO_AF_FSMC);
-  GPIO_PinAFConfig(GPIOD, GPIO_PinSource4, GPIO_AF_FSMC);
-  GPIO_PinAFConfig(GPIOD, GPIO_PinSource5, GPIO_AF_FSMC);
-  GPIO_PinAFConfig(GPIOD, GPIO_PinSource14, GPIO_AF_FSMC);
-  GPIO_PinAFConfig(GPIOD, GPIO_PinSource15, GPIO_AF_FSMC);
+	GPIO_PinAFConfig(GPIOD, GPIO_PinSource0, GPIO_AF_FSMC);
+	GPIO_PinAFConfig(GPIOD, GPIO_PinSource1, GPIO_AF_FSMC);
+	GPIO_PinAFConfig(GPIOD, GPIO_PinSource4, GPIO_AF_FSMC);
+	GPIO_PinAFConfig(GPIOD, GPIO_PinSource5, GPIO_AF_FSMC);
+	GPIO_PinAFConfig(GPIOD, GPIO_PinSource14, GPIO_AF_FSMC);
+	GPIO_PinAFConfig(GPIOD, GPIO_PinSource15, GPIO_AF_FSMC);
 
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_7 | GPIO_Pin_8 | GPIO_Pin_9 | GPIO_Pin_10;
-  GPIO_Init(GPIOE, &GPIO_InitStructure);
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_7 | GPIO_Pin_8 | GPIO_Pin_9 | GPIO_Pin_10;
+	GPIO_Init(GPIOE, &GPIO_InitStructure);
 
-  GPIO_PinAFConfig(GPIOE, GPIO_PinSource7 , GPIO_AF_FSMC);
-  GPIO_PinAFConfig(GPIOE, GPIO_PinSource8 , GPIO_AF_FSMC);
-  GPIO_PinAFConfig(GPIOE, GPIO_PinSource9 , GPIO_AF_FSMC);
-  GPIO_PinAFConfig(GPIOE, GPIO_PinSource10 , GPIO_AF_FSMC);
+	GPIO_PinAFConfig(GPIOE, GPIO_PinSource7 , GPIO_AF_FSMC);
+	GPIO_PinAFConfig(GPIOE, GPIO_PinSource8 , GPIO_AF_FSMC);
+	GPIO_PinAFConfig(GPIOE, GPIO_PinSource9 , GPIO_AF_FSMC);
+	GPIO_PinAFConfig(GPIOE, GPIO_PinSource10 , GPIO_AF_FSMC);
 
-  /* SRAM Address lines configuration, PF0 = A0 ==>LCD_RS */
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0;
-  GPIO_Init(GPIOF, &GPIO_InitStructure);
-  GPIO_PinAFConfig(GPIOF, GPIO_PinSource0, GPIO_AF_FSMC);
+	/* SRAM Address lines configuration, PF0 = A0 ==>LCD_RS */
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0;
+	GPIO_Init(GPIOF, &GPIO_InitStructure);
+	GPIO_PinAFConfig(GPIOF, GPIO_PinSource0, GPIO_AF_FSMC);
 
-  /* NE4 configuration,PG12 */
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_12;
-  GPIO_Init(GPIOG, &GPIO_InitStructure);
-  GPIO_PinAFConfig(GPIOG, GPIO_PinSource12, GPIO_AF_FSMC);
+	/* NE4 configuration,PG12 */
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_12;
+	GPIO_Init(GPIOG, &GPIO_InitStructure);
+	GPIO_PinAFConfig(GPIOG, GPIO_PinSource12, GPIO_AF_FSMC);
 }
 
 /**
