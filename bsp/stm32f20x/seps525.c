@@ -1128,7 +1128,7 @@ void LCD_CtrlLinesConfig(void)
   	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOD | RCC_AHB1Periph_GPIOG | RCC_AHB1Periph_GPIOE |
                          RCC_AHB1Periph_GPIOF, ENABLE);
 
-/*-- GPIO Configuration ------------------------------------------------------*/
+	/*-- GPIO Configuration ------------------------------------------------------*/
   	/* SRAM Data lines,  NOE and NWE configuration */
 	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0 | GPIO_Pin_1 | GPIO_Pin_14 | GPIO_Pin_15 |
                                 GPIO_Pin_4 |GPIO_Pin_5;
@@ -1419,14 +1419,14 @@ static rt_err_t lcd_control(rt_device_t dev, rt_uint8_t cmd, void *args)
 void rt_hw_lcd_init(void)
 {
 	/* GPIO control pins
-	PC0	LCD_VCC_ENABLE
-	PC1 LCD_VDD_ENABLE
-	PC2	LCD_VDDIO_ENABLE
-	PC6 LCD_RESETB				active low
+	PC0		O	LCD_VCC_ENABLE
+	PC1 	O	LCD_VDD_ENABLE
+	PC13	O	LCD_VDDIO_ENABLE (optional)
+	PC4 	O	LCD_RESETB				active low
 	Enable GPIOC clocks */
  	GPIO_InitTypeDef GPIO_InitStructure;
   	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOC, ENABLE);
-  	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0 | GPIO_Pin_1 | GPIO_Pin_2 | GPIO_Pin_6 ;
+  	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0 | GPIO_Pin_1 | GPIO_Pin_13 | GPIO_Pin_4 ;
   	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
   	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
   	GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;

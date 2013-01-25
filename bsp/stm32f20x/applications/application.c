@@ -90,6 +90,7 @@ void rt_init_thread_entry(void* parameter)
 	    extern void rtgui_system_server_init(void);
 	    extern void rt_hw_lcd_init();
 	    //extern void rtgui_touch_hw_init(void);
+	    extern void rt_hw_keypad_init(void);
 		rt_device_t lcd;
 
 		/* init lcd */
@@ -97,7 +98,8 @@ void rt_init_thread_entry(void* parameter)
 
 		/* init touch panel */
 		//rtgui_touch_hw_init();
-
+		rt_hw_keypad_init();
+	
 		/* re-init device driver ??? why */
 		rt_device_init_all();
 

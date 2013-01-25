@@ -1,11 +1,11 @@
 /**
   ******************************************************************************
-  * @file    Project/STM32F2xx_StdPeriph_Template/stm32f2xx_it.c 
+  * @file    Project/STM32F2xx_StdPeriph_Template/stm32f2xx_it.c
   * @author  MCD Application Team
   * @version V1.0.0
   * @date    18-April-2011
   * @brief   Main Interrupt Service Routines.
-  *          This file provides template for all exceptions handler and 
+  *          This file provides template for all exceptions handler and
   *          peripherals interrupt service routine.
   ******************************************************************************
   * @attention
@@ -19,7 +19,7 @@
   *
   * <h2><center>&copy; COPYRIGHT 2011 STMicroelectronics</center></h2>
   ******************************************************************************
-  */ 
+  */
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f2xx.h"
@@ -126,7 +126,7 @@ void DebugMon_Handler(void)
 
 /**
   * @}
-  */ 
+  */
 
 #if defined(RT_USING_DFS) && STM32_USE_SDIO
 /*******************************************************************************
@@ -152,5 +152,63 @@ void SDIO_IRQHandler(void)
 }
 #endif
 
+extern void EXTI0_Enable(rt_uint32_t enable);
+extern rt_sem_t power_key_sem;
+/**
+  * @brief  This function handles External line 0 interrupt request.
+  * @param  None
+  * @retval None
+  */
+void EXTI0_IRQHandler(void)
+{
+	/* enter interrupt */
+    rt_interrupt_enter();
+
+	EXTI0_Enable(0);	/* disable power key irq */
+
+ 	rt_sem_release(power_key_sem); /* let bh go */
+
+   	/* Clear the EXTI line 0 pending bit */
+   	EXTI_ClearITPendingBit(EXTI_Line0);
+
+    /* leave interrupt */
+    rt_interrupt_leave();
+}
+
+/**
+  * @brief  This function handles External lines 15 to 10 interrupt request.
+  * @param  None
+  * @retval None
+  */
+extern rt_sem_t keypad_sem;
+void EXTI9_5_IRQHandler(void)
+{
+	/* enter interrupt */
+    rt_interrupt_enter();
+
+	if( (EXTI_GetITStatus(EXTI_Line5) == SET) ||
+		(EXTI_GetITStatus(EXTI_Line6) == SET) ||
+		(EXTI_GetITStatus(EXTI_Line7) == SET) )
+		rt_sem_release(keypad_sem); /* let bh go */
+
+	if(EXTI_GetITStatus(EXTI_Line5) == SET)
+	{
+	  /* Clear the EXTI line 5 pending bit */
+	  EXTI_ClearITPendingBit(EXTI_Line5);
+	}
+	if(EXTI_GetITStatus(EXTI_Line6) == SET)
+	{
+	  /* Clear the EXTI line 5 pending bit */
+	  EXTI_ClearITPendingBit(EXTI_Line6);
+	}
+	if(EXTI_GetITStatus(EXTI_Line7) == SET)
+	{
+	  /* Clear the EXTI line 7 pending bit */
+	  EXTI_ClearITPendingBit(EXTI_Line7);
+	}
+
+	/* leave interrupt */
+	rt_interrupt_leave();
+}
 
 /******************* (C) COPYRIGHT 2011 STMicroelectronics *****END OF FILE****/
