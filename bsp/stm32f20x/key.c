@@ -123,8 +123,8 @@ R2	HOME
 static int s_dir_key[]={RTGUIK_POWER};
 
 static int s_key_map[3][3]={{RTGUIK_KP_ENTER, RTGUIK_UP, RTGUIK_MENU},
-		{RTGUIK_LEFT, RTGUIK_DOWN, RTGUIK_RIGHT},
-		{RTGUIK_HOME}};
+							{RTGUIK_LEFT, RTGUIK_DOWN, RTGUIK_RIGHT},
+							{RTGUIK_HOME}};
 
 
 static rt_err_t rtgui_key_rx(rt_device_t dev, rt_size_t size)
@@ -198,10 +198,11 @@ void EXTI0_Enable(rt_uint32_t enable)
     }
 
     EXTI_Init(&EXTI_InitStructure);
+
     EXTI_ClearITPendingBit(EXTI_Line0);
 }
 
-static void EXTI_Keyscan_Enable(rt_uint32_t enable)
+void EXTI_Keyscan_Enable(rt_uint32_t enable)
 {
     EXTI_InitTypeDef EXTI_InitStructure;
 
@@ -221,6 +222,7 @@ static void EXTI_Keyscan_Enable(rt_uint32_t enable)
         EXTI_InitStructure.EXTI_LineCmd = DISABLE;
     }
     EXTI_Init(&EXTI_InitStructure);
+
     EXTI_ClearITPendingBit(EXTI_Line5);
     EXTI_ClearITPendingBit(EXTI_Line6);
     EXTI_ClearITPendingBit(EXTI_Line7);
@@ -234,14 +236,13 @@ static void power_key_bh(void *param)
 	power_key_sem = rt_sem_create("power_key sem", 0, RT_IPC_FLAG_FIFO); /* bh waits for irq */
 	while(1)
 	{
-		printf("power_key_bh is waiting for IRQ\n");
+		//printf("power_key_bh is waiting for IRQ\n");
 		rt_sem_take(power_key_sem, RT_WAITING_FOREVER);/* waits for ISR */
 		/* init keyboard event */
 		RTGUI_EVENT_KBD_INIT(&kbd_event);
 		kbd_event.mod  = RTGUI_KMOD_NONE;
 		kbd_event.unicode = 0;
-		kbd_event.key = RTGUIK_UNKNOWN;
-		printf("power key is pressed %d\n",POWER_KEY_DOWN);
+		//printf("power key is pressed %d\n",POWER_KEY_DOWN);
 		/* power key IRQ is disabled */
 		if(POWER_KEY_DOWN){
 			rt_thread_delay(5);	/* 50ms to debounce */
@@ -267,27 +268,83 @@ static void power_key_bh(void *param)
 rt_sem_t keypad_sem = RT_NULL;
 static void keypad_scan_bh(void *param)
 {
-	//debouce
-	//check again  if the col is down
-	//	scan row0,1,2 by pull up
-	//	col is up, post scanned key press-down
-	//	wait until col is up
-	//	post key up
-	//else  this is key up, bouncing...
-	// enable interrupt again
-	//struct rtgui_event_kbd kbd_event;
-	//char key_value;
+	KEY_CONFG key_col[] = {{KEY_COL0_GPIO, KEY_COL0_PIN},
+						{KEY_COL1_GPIO, KEY_COL1_PIN},
+						{KEY_COL2_GPIO, KEY_COL2_PIN}};
+	KEY_CONFG key_row[] = {{KEY_ROW0_GPIO, KEY_ROW0_PIN},
+						{KEY_ROW1_GPIO, KEY_ROW1_PIN},
+						{KEY_ROW2_GPIO, KEY_ROW2_PIN}};
+	int key_val[3][3];
+	struct rtgui_event_kbd kbd_event;
+	int count;
 
-	keypad_sem = rt_sem_create("keypad_sem", 0, RT_IPC_FLAG_FIFO); /* bh waits for irq */
+	keypad_sem = rt_sem_create("keyscan_sem", 0, RT_IPC_FLAG_FIFO); /* bh waits for irq */
 	while(1)
 	{
-		printf("keypad_scan_bh is waiting for isr\n");
+		int i,j;
+		//printf("keypad_scan_bh is waiting for isr\n");
 		rt_sem_take(keypad_sem, RT_WAITING_FOREVER);/* waits for ISR */
-		/* init keyboard event */
-		/* power key IRQ is disabled */
-		printf("keypad_scan_bh fired\n");
-		//enable power key falling edge trigger again
-		//EXTI0_Enable(1);
+		rt_thread_delay(2); /* debounce */
+		//printf("sizeof key_val=%d\n",sizeof key_val);
+		rt_memset(key_val, RTGUIK_UNKNOWN, sizeof(key_val));
+		count =0 ;
+		/*
+		for(i=0;i<3;i++){
+			for(j=0;j<3;j++)
+				printf("%d %d = 0x%x ", i,j,key_val[i][j]);
+			printf("\n");
+		}*/
+
+		/*which col is pulled low? */
+		for(i = 0; i < 3; i ++){
+			if( IS_COL_LOW(key_col[i]) ){
+				/* scan row0, row1, row2*/
+				for(j=0; j<3; j++){
+					//printf("pull-up row=%d,col=%d\n",j,i);
+					KEYPAD_PULL_UP(key_row[j]);
+					if(!IS_COL_LOW(key_col[i])){
+						/* key is pressed on the (j,i) */
+						RTGUI_EVENT_KBD_INIT(&kbd_event);
+						kbd_event.mod  = RTGUI_KMOD_NONE;
+						kbd_event.unicode = 0;
+						kbd_event.type = RTGUI_KEYDOWN;
+						kbd_event.key = s_key_map[j][i];
+						/* post down event */
+						rtgui_server_post_event(&(kbd_event.parent), sizeof(kbd_event));
+						key_val[j][i]=s_key_map[j][i];
+						printf("key#%d pressed [%d,%d,0x%x]\n",count, j,i,s_key_map[j][i]);
+						count++;
+					}
+					KEYPAD_PULL_DOWN(key_row[j]);
+				}
+			}
+		}
+		/*
+		for(i=0;i<3;i++){
+			for(j=0;j<3;j++)
+				printf("%d %d = 0x%x ", i,j,key_val[i][j]);
+			printf("\n");
+		}*/
+		while(count){/*waiting for released key*/
+			for(j=0; j<3 ;j++)
+				for(i=0 ; (i <3) ; i++){
+					rt_thread_delay(1);
+					//if((key_val[i][j] != RTGUIK_UNKNOWN)) printf("keypad : %d,%d,0x%x\n",i,j,key_val[i][j]);
+					if( (key_val[i][j] != RTGUIK_UNKNOWN) && !IS_COL_LOW(key_col[j])){
+						/* key is released */
+						RTGUI_EVENT_KBD_INIT(&kbd_event);
+						kbd_event.mod  = RTGUI_KMOD_NONE;
+						kbd_event.unicode = 0;
+						kbd_event.type = RTGUI_KEYUP;
+						kbd_event.key = key_val[i][j];
+						/* post up event */
+						rtgui_server_post_event(&(kbd_event.parent), sizeof(kbd_event));
+						printf("key#%d released [%d,%d,0x%x]\n",count-1,i,j,kbd_event.key);
+						key_val[i][j]=RTGUIK_UNKNOWN;
+						if(--count) break;
+					}
+				}
+		}
 		EXTI_Keyscan_Enable(1);
 	}
 }
@@ -303,26 +360,31 @@ static void  keypad_gpio_init(void)
 	GPIO_InitTypeDef   GPIO_InitStructure;
 	NVIC_InitTypeDef   NVIC_InitStructure;
 
-	/* keypad matrix row: GPO pull-down, PG11, PG13, PG7 */
-  	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOG, ENABLE);
-  	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_11 | GPIO_Pin_13 | GPIO_Pin_7 ;
-  	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
-  	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz;
-  	GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  	GPIO_InitStructure.GPIO_PuPd  = GPIO_PuPd_DOWN;
-  	GPIO_Init(GPIOG, &GPIO_InitStructure);
-
-	/* Enable GPIOA clock */
-	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOA, ENABLE);
 	/* Enable SYSCFG clock
 	SYSCFG APB clock must be enabled to get write access to SYSCFG_EXTICRx
 	*         registers using
 	*/
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_SYSCFG, ENABLE);
 
+	/* keypad matrix row: GPO pull-down, PG11, PG13, PG7 */
+  	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOG, ENABLE);
+  	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_11 | GPIO_Pin_13 | GPIO_Pin_7 ;
+  	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
+  	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz;
+  	GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
+  	GPIO_InitStructure.GPIO_PuPd  = GPIO_PuPd_NOPULL;
+  	GPIO_Init(GPIOG, &GPIO_InitStructure);
+	KEY_ROW0_PULL_DOWN;
+	KEY_ROW1_PULL_DOWN;
+	KEY_ROW2_PULL_DOWN;
+
+	//KEY_ROW1_PULL_DOWN;
+	/* Enable GPIOA clock */
+	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOA, ENABLE);
+
 	/* Configure PA0 pin as input floating: PWR */
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
-	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL; /* external 10k pull up*/
+	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP; /* external 10k pull up*/
 	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0;
 	GPIO_Init(GPIOA, &GPIO_InitStructure);
 

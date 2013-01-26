@@ -180,6 +180,7 @@ void EXTI0_IRQHandler(void)
   * @param  None
   * @retval None
   */
+extern void EXTI_Keyscan_Enable(rt_uint32_t enable);
 extern rt_sem_t keypad_sem;
 void EXTI9_5_IRQHandler(void)
 {
@@ -188,8 +189,10 @@ void EXTI9_5_IRQHandler(void)
 
 	if( (EXTI_GetITStatus(EXTI_Line5) == SET) ||
 		(EXTI_GetITStatus(EXTI_Line6) == SET) ||
-		(EXTI_GetITStatus(EXTI_Line7) == SET) )
+		(EXTI_GetITStatus(EXTI_Line7) == SET) ){
+		EXTI_Keyscan_Enable(0);
 		rt_sem_release(keypad_sem); /* let bh go */
+	}
 
 	if(EXTI_GetITStatus(EXTI_Line5) == SET)
 	{
