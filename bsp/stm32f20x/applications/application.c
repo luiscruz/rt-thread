@@ -43,6 +43,15 @@
 #include <rtgui/driver.h>
 #endif
 
+#ifdef BMP085_SUPPORT
+extern void bmp085_hw_init(void);
+extern uint8_t BMP085_Config(void);
+#endif
+
+#ifdef LSM330DLX_SUPPORT
+extern void LSM330DLX_Config(void);
+#endif
+
 void rt_init_thread_entry(void* parameter)
 {
 /* Filesystem Initialization */
@@ -66,6 +75,14 @@ void rt_init_thread_entry(void* parameter)
 	}
 #endif
 
+#ifdef BMP085_SUPPORT
+	//bmp085_hw_init();
+	BMP085_Config();
+#endif
+#ifdef LSM330DLX_SUPPORT
+	LSM330DLX_Config();
+#endif
+	
 /* LwIP Initialization */
 #ifdef RT_USING_LWIP
 	{
@@ -99,7 +116,7 @@ void rt_init_thread_entry(void* parameter)
 		/* init touch panel */
 		//rtgui_touch_hw_init();
 		rt_hw_keypad_init();
-	
+
 		/* re-init device driver ??? why */
 		rt_device_init_all();
 
@@ -114,6 +131,8 @@ void rt_init_thread_entry(void* parameter)
 
 	}
 #endif /* #ifdef RT_USING_RTGUI */
+
+
 }
 
 int rt_application_init()

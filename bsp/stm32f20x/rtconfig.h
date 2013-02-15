@@ -62,6 +62,10 @@
 /* USART debug port: PA2,PA3 */
 #define RT_USING_UART2
 
+#define RT_USING_UART3
+#define	RT_USING_BLUETOOTH
+#define	RT_USING_ISSC_BM57SPP
+
 /* SECTION: Console options */
 #define RT_USING_CONSOLE
 /* the buffer size of console*/
@@ -74,6 +78,7 @@
 #define FINSH_USING_DESCRIPTION
 
 /* SECTION: device filesystem */
+#define DFS_USING_WORKDIR
 /* #define RT_USING_DFS */
 #define RT_USING_DFS_ELMFAT
 #define RT_DFS_ELM_REENTRANT
@@ -154,6 +159,9 @@
 /* #define RTGUI_USING_MOUSE_CURSOR */
 /* default font size in RTGUI */
 #define RTGUI_DEFAULT_FONT_SIZE	16
+
+#define	BMP085_SUPPORT	1
+#define	LSM330DLX_SUPPORT	1
 
 /* image support */
 /* #define RTGUI_IMAGE_XPM */

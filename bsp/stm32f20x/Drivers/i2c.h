@@ -86,7 +86,7 @@
 #define I2C_IT_ERR                      ((uint16_t)0x0100)
 
 
-#define  ClockSpeed            400000
+#define  ClockSpeed            100000	//400000
 
 #define I2C_DIRECTION_TX 0
 #define I2C_DIRECTION_RX 1
@@ -140,7 +140,7 @@ typedef enum
     DMA = 0x02
 } I2C_ProgrammingModel;
 
-void I2C1_INIT();
+void I2C1_INIT(void);
 Status I2C_AcknowledgePolling(I2C_TypeDef* I2Cx ,uint8_t Addr);
 Status I2C_IORW(I2C_TypeDef* I2Cx, uint8_t* pBuffer, uint32_t NumByteToRead, uint16_t memAddr, uint8_t SlaveAddress , uint8_t MemType );
 

@@ -1,0 +1,498 @@
+/**
+  ******************************************************************************
+  * @file    STM32_EVAL_CPAL/Common/stm32_eval_i2c_lsm303dlx_cpal.c
+  * @author  MCD Application Team
+  * @version V1.1.0
+  * @date    17-June-2011
+  * @brief   This file provides a set of functions needed to manage the I2C LSM330DLX
+  *          temperature sensor mounted on STM32xx-EVAL board (refer to stm32_eval.h
+  *          to know about the boards supporting this sensor).
+  *          It implements a high level communication layer for read and write
+  *          from/to this sensor. The needed STM32 hardware resources (I2C and
+  *          GPIO) are defined in stm32xx_eval.h file, and the initialization is
+  *          performed in LSM330DLX_LowLevel_Init() function declared in stm32xx_eval.c
+  *          file.
+  *
+  *          @note This file is a modified version of stm32_eval_i2c_tsensor.c driver;
+  *                I2C CPAL library drivers are used instead of the Standard Peripherals
+  *                I2C driver.
+  *
+  *          You can easily tailor this driver to any other development board,
+  *          by just adapting the defines for hardware resources and
+  *          LSM330DLX_LowLevel_Init() function.
+  *
+  *     +-----------------------------------------------------------------+
+  *     |                        Pin assignment                           |
+  *     +---------------------------------------+-----------+-------------+
+  *     |  STM32 I2C Pins                       |   STLSM330DLX  |   Pin       |
+  *     +---------------------------------------+-----------+-------------+
+  *     | LSM330DLX_I2C_SDA_PIN/ SDA            |   SDA     |    1        |
+  *     | LSM330DLX_I2C_SCL_PIN/ SCL            |   SCL     |    2        |
+  *     |                                       |   OS/INT  |    3        |
+  *     | .                                     |   GND     |    4  (0V)  |
+  *     | .                                     |   GND     |    5  (0V)  |
+  *     | .                                     |   GND     |    6  (0V)  |
+  *     | .                                     |   GND     |    7  (0V)  |
+  *     | .                                     |   VDD     |    8  (3.3V)|
+  *     +---------------------------------------+-----------+-------------+
+  ******************************************************************************
+  * @attention
+  *
+  * THE PRESENT FIRMWARE WHICH IS FOR GUIDANCE ONLY AIMS AT PROVIDING CUSTOMERS
+  * WITH CODING INFORMATION REGARDING THEIR PRODUCTS IN ORDER FOR THEM TO SAVE
+  * TIME. AS A RESULT, STMICROELECTRONICS SHALL NOT BE HELD LIABLE FOR ANY
+  * DIRECT, INDIRECT OR CONSEQUENTIAL DAMAGES WITH RESPECT TO ANY CLAIMS ARISING
+  * FROM THE CONTENT OF SUCH FIRMWARE AND/OR THE USE MADE BY CUSTOMERS OF THE
+  * CODING INFORMATION CONTAINED HEREIN IN CONNECTION WITH THEIR PRODUCTS.
+  *
+  * <h2><center>&copy; COPYRIGHT 2011 STMicroelectronics</center></h2>
+  ******************************************************************************
+  */
+
+/* Includes ------------------------------------------------------------------*/
+#include <rtthread.h>
+#include "stm32_eval_i2c_lsm303dlx_cpal.h"
+#define	printk rt_kprintf
+/* Private typedef -----------------------------------------------------------*/
+/* Private defines -----------------------------------------------------------*/
+#define LSM330DLX_SD_SET      0x01 /*!< Set SD bit in the configuration register */
+#define LSM330DLX_SD_RESET    0xFE /*!< Reset SD bit in the configuration register */
+
+/* Private macro -------------------------------------------------------------*/
+/* Private variables ---------------------------------------------------------*/
+
+CPAL_TransferTypeDef  LSM330DLX_RXTransfer = {
+                        /* Initialize TX Transfer structure */
+                        pNULL,
+                        0,
+                        0,
+                        0};
+
+CPAL_TransferTypeDef  LSM330DLX_TXTransfer = {
+                        /* Initialize RX Transfer structure */
+                        pNULL,
+                        0,
+                        0,
+                        0};
+
+static uint8_t LSM330DLX_Buffer[12];
+
+
+static uint8_t M_SLAVE_ADDR;
+static uint8_t A_SLAVE_ADDR;
+
+extern CPAL_InitTypeDef LSM330DLX_DevStructure;
+
+
+__IO uint32_t  LSM330DLX_Timeout = LSM330DLX_TIMEOUT;
+
+/* Private function prototypes -----------------------------------------------*/
+static void LSM330DLX_StructInit(void);
+static void LSM330DLX_I2C_Init(void);
+
+/* Private functions ---------------------------------------------------------*/
+
+/**
+  * @brief  Reads a buffer of n bytes from the device registers.
+  * @param  slave: The slave address of the device,
+  * @param  RegisterAddr: The target register address in the slave dev
+  * @retval A pointer to the buffer containing the two returned bytes (in halfword).
+  */
+static uint8_t *i2c_readBuf(uint8_t slave, uint32_t RegisterAddr, uint8_t count)
+{
+  	uint8_t i;
+
+	for(i = 0; i < count; i++) LSM330DLX_Buffer[i] = 0;
+
+  	/* Disable all options */
+  	LSM330DLX_DevStructure.wCPAL_Options  = 0; //CPAL_OPT_I2C_NOSTOP;
+
+  	/* point to CPAL_TransferTypeDef structure */
+  	LSM330DLX_DevStructure.pCPAL_TransferRx = &LSM330DLX_RXTransfer;
+
+  	/* Configure transfer parameters */
+  	LSM330DLX_DevStructure.pCPAL_TransferRx->wNumData = count;
+  	LSM330DLX_DevStructure.pCPAL_TransferRx->pbBuffer = LSM330DLX_Buffer ;
+  	LSM330DLX_DevStructure.pCPAL_TransferRx->wAddr1   = (uint32_t)slave;
+  	LSM330DLX_DevStructure.pCPAL_TransferRx->wAddr2   = (uint32_t)RegisterAddr;
+
+  	/* read Operation */
+  	if (CPAL_I2C_Read(&LSM330DLX_DevStructure)== CPAL_PASS)
+  	{
+  	  while ((LSM330DLX_DevStructure.CPAL_State != CPAL_STATE_READY) && (LSM330DLX_DevStructure.CPAL_State != CPAL_STATE_ERROR) )
+  	  { }
+  	}
+
+	//printk("i2c_readBufBuffer 0x%x 0x%x\r\n", LSM330DLX_Buffer[0], LSM330DLX_Buffer[1]);
+  	return LSM330DLX_Buffer;
+}
+
+/**
+  * @brief  Writes a value in a register of the device through I2C.
+  * @param  slave: The address of the IOExpander, could be : LSM330DLX_ADDR
+  *         or LSM330DLX_ADDR.
+  * @param  RegisterAddr: The target register address
+  * @param  RegisterValue: The target register value to be written
+  * @retval LSM330DLX_OK: if all operations are OK. Other value if error.
+  */
+uint8_t i2c_WriteByte(uint8_t slave, uint8_t RegisterAddr, uint8_t RegisterValue)
+{
+	//printk(">>>i2c_WriteByte(0x%x,0x%x,0x%x)\r\n",slave, RegisterAddr,RegisterValue);
+
+  	LSM330DLX_Buffer[0] = RegisterValue;
+
+  	/* Disable all options */
+  	LSM330DLX_DevStructure.wCPAL_Options  = 0;
+
+  	/* point to CPAL_TransferTypeDef structure */
+  	LSM330DLX_DevStructure.pCPAL_TransferTx = &LSM330DLX_TXTransfer;
+
+  	/* Configure transfer parameters */
+  	LSM330DLX_DevStructure.pCPAL_TransferTx->wNumData = 1;
+  	LSM330DLX_DevStructure.pCPAL_TransferTx->pbBuffer = LSM330DLX_Buffer ;
+  	LSM330DLX_DevStructure.pCPAL_TransferTx->wAddr1   = (uint32_t)slave;
+  	LSM330DLX_DevStructure.pCPAL_TransferTx->wAddr2   = (uint32_t)RegisterAddr;
+
+  	/* Write Operation */
+  	if (CPAL_I2C_Write(&LSM330DLX_DevStructure)== CPAL_PASS)
+  	{
+ 		//printk("CPAL_State=0%x\r\n", LSM330DLX_DevStructure.CPAL_State);
+  	  	while ((LSM330DLX_DevStructure.CPAL_State != CPAL_STATE_READY) &&
+  	  	(LSM330DLX_DevStructure.CPAL_State != CPAL_STATE_ERROR) )
+  	  	{ }
+  	}
+
+  	/* Return the verifying value: 0 (Passed) or 1 (Failed) */
+	//printk("<<<i2c_WriteByte\r\n");
+ 	return 0;
+}
+
+static uint32_t LSM330DLX_Status (uint8_t slave)
+{
+  	LSM330DLX_DevStructure.pCPAL_TransferTx = &LSM330DLX_TXTransfer;
+  	LSM330DLX_DevStructure.pCPAL_TransferTx->wAddr1 = (uint32_t)slave;
+
+  	return CPAL_I2C_IsDeviceReady(&LSM330DLX_DevStructure);
+}
+
+/**
+  * @brief  Checks the LSM330DLX status.
+  * @param  None
+  * @retval ErrorStatus: LSM330DLX Status (ERROR or SUCCESS).
+  */
+ErrorStatus LSM330DLX_GetStatus(void)
+{
+  /* Test if LSM330DLX is ready */
+  while ((LSM330DLX_Status(M_SLAVE_ADDR) == CPAL_FAIL) && LSM330DLX_Timeout)
+  {
+    LSM330DLX_Timeout--;
+  }
+
+  /* If LSM330DLX is not responding return ERROR */
+  if (LSM330DLX_Timeout == 0)
+  {
+    return ERROR;
+  }
+
+  /* In other case return SUCCESS */
+  return SUCCESS;
+}
+
+/**
+  * @brief  Enables or disables the LSM330DLX.
+  * @param  NewState: specifies the LSM330DLX new status. This parameter can be ENABLE
+  *         or DISABLE.
+  * @retval None
+  */
+uint8_t LSM330DLX_ShutDown(FunctionalState NewState)
+{
+
+
+  return LSM330DLX_OK;
+}
+
+uint8_t LSM330DLX_Reset(FunctionalState NewState)
+{
+
+
+  return LSM330DLX_OK;
+}
+
+/* for LSM303DLHC only, LSM303DLH does not have this temperature feature! */
+uint16_t *LSM330DLX_GetTemp(void)
+{
+	uint8_t *buf=0;
+	printk(">>>LSM330DLX_GetTemp\r\n");
+	buf = i2c_readBuf(M_SLAVE_ADDR, TEMP_OUT_H_M,1);
+	printk("TEMP_OUT_H_M=0x%x\r\n",buf[0]);
+
+	buf = i2c_readBuf(M_SLAVE_ADDR, TEMP_OUT_L_M,1);
+	printk("TEMP_OUT_L_M=0x%x\r\n",buf[0]);
+
+	buf = i2c_readBuf(M_SLAVE_ADDR, TEMP_OUT_H_M, 2);
+	printk("temp=[0x%x 0x%x]\r\n", buf[0], buf[1]);
+	printk("<<<LSM330DLX_GetTemp\r\n");
+	return (uint16_t *)buf;
+}
+
+uint8_t *LSM330DLX_M_XYZ(void)
+{
+	uint8_t *buf=0;
+	int i;
+	printk(">>>LSM330DLX_M_XYZ\r\n");
+	buf = i2c_readBuf(M_SLAVE_ADDR, OUT_X_H_M, 1);
+	printk("OUT_X_H_M=0x%x\r\n",buf[0]);
+
+	buf = i2c_readBuf(M_SLAVE_ADDR, OUT_X_L_M, 1);
+	printk("OUT_X_L_M=0x%x\r\n",buf[0]);
+
+	buf = i2c_readBuf(M_SLAVE_ADDR, OUT_Y_H_M, 1);
+	printk("OUT_Y_H_M=0x%x\r\n",buf[0]);
+
+	buf = i2c_readBuf(M_SLAVE_ADDR, OUT_Y_L_M, 1);
+	printk("OUT_Y_L_M=0x%x\r\n",buf[0]);
+
+	buf = i2c_readBuf(M_SLAVE_ADDR, OUT_Z_H_M, 1);
+	printk("OUT_Z_H_M=0x%x\r\n",buf[0]);
+
+	buf = i2c_readBuf(M_SLAVE_ADDR, OUT_Z_L_M, 1);
+	printk("OUT_Z_L_M=0x%x\r\n",buf[0]);
+
+	printk("OUT_?_H_M\r\n");
+	buf = i2c_readBuf(M_SLAVE_ADDR, OUT_X_H_M, 6);
+	for(i=0;i<6;i++)
+		printk("[0x%x]\r\n", buf[i]);
+	printk("<<<LSM330DLX_M_XYZ\r\n");
+	return buf;
+}
+
+uint8_t *LSM330DLX_A_XYZ(void)
+{
+	uint8_t *buf=0;
+	int i;
+	printk(">>>LSM330DLX_A_XYZ\r\n");
+	buf = i2c_readBuf(M_SLAVE_ADDR, OUT_X_L_A, 1);
+	printk("OUT_X_L_A=0x%x\r\n",buf[0]);
+
+	buf = i2c_readBuf(M_SLAVE_ADDR, OUT_X_H_A, 1);
+	printk("OUT_X_H_A=0x%x\r\n",buf[0]);
+
+	buf = i2c_readBuf(M_SLAVE_ADDR, OUT_Y_L_A, 1);
+	printk("OUT_Y_L_A=0x%x\r\n",buf[0]);
+
+	buf = i2c_readBuf(M_SLAVE_ADDR, OUT_Y_H_A, 1);
+	printk("OUT_Y_H_A=0x%x\r\n",buf[0]);
+
+	buf = i2c_readBuf(M_SLAVE_ADDR, OUT_Z_L_A, 1);
+	printk("OUT_Z_L_A=0x%x\r\n",buf[0]);
+
+	buf = i2c_readBuf(M_SLAVE_ADDR, OUT_Z_H_A, 1);
+	printk("OUT_Z_H_A=0x%x\r\n",buf[0]);
+///
+	buf = i2c_readBuf(M_SLAVE_ADDR, OUT_X_L_A, 2);
+	printk("OUT_X_L_A=0x%x 0x%x\r\n",buf[0], buf[1]);
+
+	buf = i2c_readBuf(M_SLAVE_ADDR, OUT_Y_L_A, 2);
+	printk("OUT_Y_L_A=0x%x 0x%x\r\n",buf[0], buf[1]);
+
+	buf = i2c_readBuf(M_SLAVE_ADDR, OUT_Z_L_A, 2);
+	printk("OUT_Z_L_A=0x%x 0x%x\r\n",buf[0], buf[1]);
+///
+
+	printk("OUT_?_H_A\r\n");
+	buf = i2c_readBuf(M_SLAVE_ADDR, OUT_X_L_A, 6);
+	for(i=0;i<6;i++)
+		printk("[0x%x]\r\n", buf[i]);
+
+	printk("<<<LSM330DLX_A_XYZ\r\n");
+	return buf;
+}
+
+static void ReadID(void)
+{
+	uint8_t *buf=0;
+
+	buf = i2c_readBuf(M_SLAVE_ADDR, IRA_REG_M,1);
+	printk("IRA_REG_M=0x%x %c\r\n",buf[0], buf[0]);
+	buf = i2c_readBuf(M_SLAVE_ADDR, IRB_REG_M,1);
+	printk("IRB_REG_M=0x%x %c\r\n",buf[0], buf[0]);
+	buf = i2c_readBuf(M_SLAVE_ADDR, IRC_REG_M,1);
+	printk("IRC_REG_M=0x%x %c\r\n",buf[0], buf[0]);
+	/* TODO TODO : reading 3 bytes make system down */
+	//buf = i2c_readBuf(M_SLAVE_ADDR, IRA_REG_M, 3);
+	//printk("[0x%x 0x%x 0x%x]\r\n", buf[0], buf[1], buf[2]);
+}
+
+/**
+  * @brief  Initialize the GPIO pins
+  * @param  None
+  * @retval None
+  */
+static void LSM330DLX_INT_GPIO_Config(void)
+{
+	EXTI_InitTypeDef   EXTI_InitStructure;
+	GPIO_InitTypeDef   GPIO_InitStructure;
+	NVIC_InitTypeDef   NVIC_InitStructure;
+
+	/* PH6 : SENSOR1_RESET */
+  	RCC_AHB1PeriphClockCmd(LSM330DLX_RESET_GPIO_CLK, ENABLE);
+  	GPIO_InitStructure.GPIO_Pin = LSM330DLX_RESET_PIN ;
+  	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
+  	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz;
+  	GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
+  	GPIO_InitStructure.GPIO_PuPd  = GPIO_PuPd_NOPULL;	//GPIO_PuPd_UP;
+  	GPIO_Init(LSM330DLX_RESET_PORT, &GPIO_InitStructure);
+	LSM330DLX_RESET_OFF;
+
+	/* GPG8 : SENSOR1_POWER	POWER ON */
+  	RCC_AHB1PeriphClockCmd(LSM330DLX_POWER_GPIO_CLK, ENABLE);
+  	GPIO_InitStructure.GPIO_Pin = LSM330DLX_POWER_PIN ;
+  	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
+  	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz;
+  	GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
+  	GPIO_InitStructure.GPIO_PuPd  = GPIO_PuPd_NOPULL;	//GPIO_PuPd_UP;
+  	GPIO_Init(LSM330DLX_POWER_PORT, &GPIO_InitStructure);
+	LSM330DLX_POWER_ON;
+
+  	/*
+  	 * INT1 : PB8
+  	 * INT2 : PB9
+  	 */
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_SYSCFG, ENABLE);
+
+	/* Enable GPIOB clock */
+	RCC_AHB1PeriphClockCmd(LSM330DLX_IT1_GPIO_CLK, ENABLE);
+
+	/* Configure PG8 pin as input high */
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
+	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_DOWN; /* ??? or no pull??? */
+	GPIO_InitStructure.GPIO_Pin = LSM330DLX_IT1_PIN;
+	GPIO_Init(LSM330DLX_IT1_GPIO_PORT, &GPIO_InitStructure);
+
+	/* Connect EXTI Line8 pin */
+	SYSCFG_EXTILineConfig(LSM330DLX_IT1_EXTI_PORT_SOURCE, LSM330DLX_IT1_EXTI_PIN_SOURCE);
+
+	/* Configure EXTI Line8 */
+	EXTI_InitStructure.EXTI_Line = LSM330DLX_IT1_EXTI_LINE;
+	EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
+	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Rising;
+	EXTI_InitStructure.EXTI_LineCmd = ENABLE;
+	EXTI_Init(&EXTI_InitStructure);
+
+	/* Enable GPIOB clock */
+	RCC_AHB1PeriphClockCmd(LSM330DLX_IT2_GPIO_CLK, ENABLE);
+
+	/* Configure PG9 pin as input high */
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
+	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_DOWN; /* ??? or no pull??? */
+	GPIO_InitStructure.GPIO_Pin = LSM330DLX_IT2_PIN;
+	GPIO_Init(LSM330DLX_IT2_GPIO_PORT, &GPIO_InitStructure);
+
+	/* Connect EXTI Line9 pin */
+	SYSCFG_EXTILineConfig(LSM330DLX_IT2_EXTI_PORT_SOURCE, LSM330DLX_IT2_EXTI_PIN_SOURCE);
+
+	/* Configure EXTI Line9 */
+	EXTI_InitStructure.EXTI_Line = LSM330DLX_IT2_EXTI_LINE;
+	EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
+	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Rising;
+	EXTI_InitStructure.EXTI_LineCmd = ENABLE;
+	EXTI_Init(&EXTI_InitStructure);
+
+	/* Enable and set EXTI Line9_5 Interrupt to the lowest priority */
+	NVIC_InitStructure.NVIC_IRQChannel = EXTI9_5_IRQn;
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0x0F;
+	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0x0F;
+	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+	NVIC_Init(&NVIC_InitStructure);
+}
+
+
+/**
+  * @brief  Initializes the LSM330DLX_I2C.
+  * @param  None
+  * @retval None
+  */
+static void LSM330DLX_I2C_Init(void)
+{
+  	/* Initialize CPAL peripheral */
+  	CPAL_I2C_Init(&LSM330DLX_DevStructure);
+}
+
+/**
+  * @brief  Initializes the LSM330DLX_I2C.
+  * @param  None
+  * @retval None
+  */
+static void LSM330DLX_StructInit(void)
+{
+  	/* Set CPAL structure parameters to their default values */
+  	CPAL_I2C_StructInit(&LSM330DLX_DevStructure);
+
+  	/* Set I2C clock speed */
+  	LSM330DLX_DevStructure.pCPAL_I2C_Struct->I2C_ClockSpeed = I2C_SPEED;
+
+#ifdef LSM330DLX_IT
+  	/* Select Interrupt programming model and disable all options */
+  	LSM330DLX_DevStructure.CPAL_ProgModel = CPAL_PROGMODEL_INTERRUPT;
+  	LSM330DLX_DevStructure.wCPAL_Options  = 0;
+#else
+  	/* Select DMA programming model and activate TX_DMA_TC and RX_DMA_TC interrupts */
+  	LSM330DLX_DevStructure.CPAL_ProgModel = CPAL_PROGMODEL_DMA;
+  	LSM330DLX_DevStructure.wCPAL_Options  = CPAL_OPT_DMATX_TCIT | CPAL_OPT_DMARX_TCIT ;
+#endif /* LSM330DLX_IT */
+
+  	/* point to CPAL_TransferTypeDef structure */
+  	LSM330DLX_DevStructure.pCPAL_TransferTx = &LSM330DLX_TXTransfer;
+  	LSM330DLX_DevStructure.pCPAL_TransferRx = &LSM330DLX_RXTransfer;
+}
+
+static void InitLSM303D(void)
+{
+	i2c_WriteByte(M_SLAVE_ADDR,CRA_REG_M,0x3 <<2);	//0x14);
+    i2c_WriteByte(M_SLAVE_ADDR,MR_REG_M,0x01);	//single conversion
+	i2c_WriteByte(A_SLAVE_ADDR,CTRL_REG1_A, (0x5<<5) | 0x7); //0x27);
+}
+
+/**
+  * @brief  Configure the LSM330DLX_I2C.
+  * @param  None
+  * @retval None
+  */
+void LSM330DLX_Config(void)
+{
+	/* LSM330DLH */
+	M_SLAVE_ADDR= LSM330DLH_M_ADDR;
+	A_SLAVE_ADDR= LSM330DLH_A_ADDR;
+	/* LSM330DLHC
+	M_SLAVE_ADDR= LSM330DLHC_M_ADDR
+	A_SLAVE_ADDR= LSM330DLHC_A_ADDR;
+	*/
+
+  	LSM330DLX_StructInit ();
+  	LSM330DLX_I2C_Init();
+	LSM330DLX_INT_GPIO_Config();
+	InitLSM303D();
+
+	//while(1){
+		ReadID();
+	/*
+		LSM330DLX_A_XYZ();
+		LSM330DLX_M_XYZ();
+		LSM330DLX_GetTemp();*/
+		rt_thread_delay(10);
+	//}
+}
+
+/**
+  * @brief  Deinitialize the LSM330DLX_I2C.
+  * @param  None
+  * @retval None
+  */
+void LSM330DLX_DeInit(void)
+{
+    /* Initialize CPAL peripheral */
+ 	CPAL_I2C_DeInit(&LSM330DLX_DevStructure);
+}
+
+
+/******************* (C) COPYRIGHT 2011 STMicroelectronics *****END OF FILE****/

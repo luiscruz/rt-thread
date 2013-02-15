@@ -109,6 +109,8 @@ struct rt_device uart3_device;
 /* USART3_REMAP[1:0] = 00 */
 #define UART3_GPIO_RX		GPIO_Pin_11
 #define UART3_GPIO_TX		GPIO_Pin_10
+#define UART3_GPIO_RTS		GPIO_Pin_14
+#define UART3_GPIO_CTS		GPIO_Pin_13
 #define UART3_GPIO			GPIOB
 #define RCC_APBPeriph_UART3	RCC_APB1Periph_USART3
 #define UART3_TX_DMA		DMA1_Channel2
@@ -136,6 +138,12 @@ static void RCC_Configuration(void)
 	RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART2, ENABLE);
 #endif
 
+#ifdef RT_USING_UART3
+	/* Enable USART3 and GPIOB, B10,B11, B13, B14,clocks */
+	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOB, ENABLE);
+	RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART3, ENABLE);
+#endif
+
 #ifdef RT_USING_UART6
 	/* Enable USART6 and GPIOC clocks */
 	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOC, ENABLE);
@@ -149,7 +157,7 @@ static void GPIO_Configuration(void)
 
 #ifdef RT_USING_UART1
 	GPIO_InitStruct.GPIO_Mode=GPIO_Mode_AF;
-	GPIO_InitStruct.GPIO_Speed=GPIO_Speed_50MHz;
+	GPIO_InitStruct.GPIO_Speed=GPIO_Speed_100MHz;
 	GPIO_InitStruct.GPIO_OType=GPIO_OType_PP;
 	GPIO_InitStruct.GPIO_PuPd=GPIO_PuPd_UP;
 
@@ -162,7 +170,7 @@ static void GPIO_Configuration(void)
 
 #ifdef RT_USING_UART2
 	GPIO_InitStruct.GPIO_Mode=GPIO_Mode_AF;
-	GPIO_InitStruct.GPIO_Speed=GPIO_Speed_50MHz;
+	GPIO_InitStruct.GPIO_Speed=GPIO_Speed_100MHz;
 	GPIO_InitStruct.GPIO_OType=GPIO_OType_PP;
 	GPIO_InitStruct.GPIO_PuPd=GPIO_PuPd_UP;
 
@@ -171,6 +179,34 @@ static void GPIO_Configuration(void)
 
 	GPIO_PinAFConfig(GPIOA, GPIO_PinSource2, GPIO_AF_USART2);
 	GPIO_PinAFConfig(GPIOA, GPIO_PinSource3, GPIO_AF_USART2);
+#endif
+
+#ifdef RT_USING_UART3
+	/* Connect USART3 pins to AF7
+	 * bluetooth module has hardware flow control
+	 * PB10(TX,O), PB11(RX, I), PB13(CTS, I), PB14(RTS, O)
+	 */
+
+
+	/* Configure USART Tx and Rx as alternate function push-pull */
+	GPIO_InitStruct.GPIO_Mode = GPIO_Mode_AF;
+	GPIO_InitStruct.GPIO_Speed = GPIO_Speed_100MHz;
+	GPIO_InitStruct.GPIO_OType = GPIO_OType_PP;
+	GPIO_InitStruct.GPIO_PuPd = GPIO_PuPd_UP;
+	GPIO_InitStruct.GPIO_Pin = GPIO_Pin_10 | GPIO_Pin_11 | GPIO_Pin_14;
+	GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+	/* CTS is input pin driven by the BT module, so don't internally pull-up.
+	* internal pull-up will make hardware flow control fail
+	*/
+	GPIO_InitStruct.GPIO_Pin = GPIO_Pin_13;
+	GPIO_InitStruct.GPIO_PuPd = GPIO_PuPd_NOPULL; /* refer to STMF1xx flow control setting */
+  	GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+	GPIO_PinAFConfig(GPIOB, GPIO_PinSource10, GPIO_AF_USART3);
+	GPIO_PinAFConfig(GPIOB, GPIO_PinSource11, GPIO_AF_USART3);
+	GPIO_PinAFConfig(GPIOB, GPIO_PinSource13, GPIO_AF_USART3);
+	GPIO_PinAFConfig(GPIOB, GPIO_PinSource14, GPIO_AF_USART3);
 #endif
 
 #ifdef RT_USING_UART6
@@ -203,6 +239,15 @@ static void NVIC_Configuration(void)
 #ifdef RT_USING_UART2
 	/* Enable the USART2 Interrupt */
 	NVIC_InitStructure.NVIC_IRQChannel = USART2_IRQn;
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
+	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
+	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+	NVIC_Init(&NVIC_InitStructure);
+#endif
+
+#ifdef RT_USING_UART3
+	/* Enable the USART2 Interrupt */
+	NVIC_InitStructure.NVIC_IRQChannel = USART3_IRQn;
 	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
 	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
 	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
@@ -280,6 +325,29 @@ void rt_hw_usart_init()
 	USART_ClearFlag(USART2,USART_FLAG_TXE);
 #endif
 
+#ifdef RT_USING_UART3
+	USART_DeInit(USART3);
+	USART_InitStructure.USART_BaudRate            = 115200;
+	USART_InitStructure.USART_WordLength          = USART_WordLength_8b;
+	USART_InitStructure.USART_StopBits            = USART_StopBits_1;
+	USART_InitStructure.USART_Parity              = USART_Parity_No ;
+	USART_InitStructure.USART_HardwareFlowControl = USART_HardwareFlowControl_RTS_CTS;
+	USART_InitStructure.USART_Mode                = USART_Mode_Rx | USART_Mode_Tx;
+
+	USART_Init(USART3, &USART_InitStructure);
+
+	/* register uart3 */
+	rt_hw_serial_register(&uart3_device, "uart3",
+		RT_DEVICE_FLAG_RDWR | RT_DEVICE_FLAG_INT_RX | RT_DEVICE_FLAG_STREAM,
+		&uart3);
+
+	/* enable interrupt */
+	USART_ITConfig(USART3, USART_IT_RXNE, ENABLE);
+	/* Enable USART3 */
+	USART_Cmd(USART3, ENABLE);
+	USART_ClearFlag(USART3,USART_FLAG_TXE);
+#endif
+
 	/* uart init */
 #ifdef RT_USING_UART6
 	USART_DeInit(USART6);
@@ -325,6 +393,19 @@ void USART2_IRQHandler()
     rt_interrupt_enter();
 
     rt_hw_serial_isr(&uart2_device);
+
+    /* leave interrupt */
+    rt_interrupt_leave();
+}
+#endif
+
+#ifdef RT_USING_UART3
+void USART3_IRQHandler()
+{
+    /* enter interrupt */
+    rt_interrupt_enter();
+
+    rt_hw_serial_isr(&uart3_device);
 
     /* leave interrupt */
     rt_interrupt_leave();

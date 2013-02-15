@@ -38,6 +38,7 @@
 
 void rt_hw_led_init(void)
 {
+/*
     GPIO_InitTypeDef GPIO_InitStructure;
 
     RCC_APB2PeriphClockCmd(led1_rcc|led2_rcc,ENABLE);
@@ -50,10 +51,12 @@ void rt_hw_led_init(void)
 
     GPIO_InitStructure.GPIO_Pin   = led2_pin;
     GPIO_Init(led2_gpio, &GPIO_InitStructure);
+    */
 }
 
 void rt_hw_led_on(rt_uint32_t n)
 {
+/*
     switch (n)
     {
     case 0:
@@ -64,11 +67,12 @@ void rt_hw_led_on(rt_uint32_t n)
         break;
     default:
         break;
-    }
+    }*/
 }
 
 void rt_hw_led_off(rt_uint32_t n)
 {
+/*
     switch (n)
     {
     case 0:
@@ -80,6 +84,7 @@ void rt_hw_led_off(rt_uint32_t n)
     default:
         break;
     }
+    */
 }
 
 #ifdef RT_USING_FINSH
