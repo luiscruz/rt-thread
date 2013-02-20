@@ -79,8 +79,8 @@ extern const uint32_t CPAL_I2C_DMA_RX_TE_FLAG[];
 I2C_InitTypeDef I2C_InitStructure;
 
 /* rt-thread */
-struct rt_event i2c_event;
-static rt_mutex_t i2c_mux;
+//struct rt_event i2c_event;
+//static rt_mutex_t i2c_mux;
 
 /* Private function prototypes -----------------------------------------------*/
 

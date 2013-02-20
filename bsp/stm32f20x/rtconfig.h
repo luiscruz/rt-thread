@@ -79,11 +79,14 @@
 
 /* SECTION: device filesystem */
 #define DFS_USING_WORKDIR
-/* #define RT_USING_DFS */
+#define RT_USING_DFS
 #define RT_USING_DFS_ELMFAT
+//#define	RT_DFS_ELM_LFN_UNICODE
 #define RT_DFS_ELM_REENTRANT
 #define RT_DFS_ELM_WORD_ACCESS
 #define RT_DFS_ELM_DRIVES			1
+/* define OEM code page */
+#define RT_DFS_ELM_CODE_PAGE	950	/* traditionl Chinese, about 100K bytes font data */
 #define RT_DFS_ELM_USE_LFN			2
 #define RT_DFS_ELM_MAX_LFN			255
 #define RT_DFS_ELM_MAX_SECTOR_SIZE  512
