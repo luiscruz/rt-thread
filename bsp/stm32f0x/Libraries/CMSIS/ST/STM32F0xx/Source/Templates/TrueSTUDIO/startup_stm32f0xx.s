@@ -2,8 +2,8 @@
   ******************************************************************************
   * @file      startup_stm32f0xx.s
   * @author    MCD Application Team
-  * @version   V1.0.0
-  * @date      23-March-2012
+  * @version   V1.0.1
+  * @date      20-April-2012
   * @brief     STM32F0xx Devices vector table for Atollic toolchain.
   *            This module performs:
   *                - Set the initial SP
