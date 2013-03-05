@@ -79,10 +79,10 @@ struct stm32_serial_device uart3 =
 struct rt_device uart3_device;
 #endif
 
-#define USART1_DR_Base  0x40013804
+/*#define USART1_DR_Base  0x40013804
 #define USART2_DR_Base  0x40004404
 #define USART3_DR_Base  0x40004804
-
+*/
 /* USART1_REMAP = 0 */
 #define UART1_GPIO_TX		GPIO_Pin_9
 #define UART1_GPIO_RX		GPIO_Pin_10

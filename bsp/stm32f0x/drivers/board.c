@@ -61,7 +61,7 @@ void rt_hw_board_init()
 	/* Configure the SysTick */
 	SysTick_Config(SystemCoreClock / RT_TICK_PER_SECOND);
 
-	//rt_hw_usart_init();
+	rt_hw_usart_init();
 #ifdef RT_USING_CONSOLE
 	rt_console_set_device(CONSOLE_DEVICE);
 #endif

@@ -21,7 +21,7 @@
 /* board configuration */
 // <o> SDCard Driver <1=>SDIO sdcard <0=>SPI MMC card
 // 	<i>Default: 1
-#define STM32_USE_SDIO			0
+//#define STM32_USE_SDIO			0
 
 /* whether use board external SRAM memory */
 // <e>Use external SRAM memory on the board
@@ -37,16 +37,24 @@
 
 // <o> Internal SRAM memory size[Kbytes] <8-64>
 //	<i>Default: 64
-#define STM32_SRAM_SIZE         128
+#ifdef STM32F051
+#define STM32_SRAM_SIZE         8
+#else
+#define STM32_SRAM_SIZE         4	/* STM32F050 */
+#endif
 #define STM32_SRAM_END          (0x20000000 + STM32_SRAM_SIZE * 1024)
 
-//#define RT_USING_UART1
+#define RT_USING_UART1
+#ifdef STM32F051
 #define RT_USING_UART2
+#endif
 //#define RT_USING_UART3
 
 // <o> Console on USART: <0=> no console <1=>USART 1 <2=>USART 2 <3=> USART 3
 // 	<i>Default: 1
+#ifdef STM32F051
 #define STM32_CONSOLE_USART		2
+#endif
 
 void rt_hw_board_init(void);
 

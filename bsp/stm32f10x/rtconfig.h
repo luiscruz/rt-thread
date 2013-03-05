@@ -55,6 +55,7 @@
 
 /* Using Small MM */
 #define RT_USING_SMALL_MEM
+#define RT_USING_TINY_SIZE
 
 /* SECTION: Device System */
 /* Using Device System */
