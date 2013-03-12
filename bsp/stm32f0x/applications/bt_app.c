@@ -1,5 +1,5 @@
 /*
- * File      : bt_app.c
+ * File      : btapp_dev.c
  * This file is part of RT-Thread RTOS
  * COPYRIGHT (C) 2006, RT-Thread Development Team
  *
@@ -10,77 +10,66 @@
  * Change Logs:
  * Date           Author       Notes
  * 03-02-2013	  Thomas Tsai	cloned from finsh to use usart
- * 2006-04-30     Bernard      the first verion for FinSH
- * 2006-05-08     Bernard      change btapp thread stack to 2048
- * 2006-06-03     Bernard      add support for skyeye
- * 2006-09-24     Bernard      remove the code related with hardware
- * 2010-01-18     Bernard      fix down then up key bug.
- * 2010-03-19     Bernard      fix backspace issue and fix device read in btapp_sh.
- * 2010-04-01     Bernard      add prompt output when start and remove the empty history
- * 2011-02-23     Bernard      fix variable section end issue of btapp btapp_sh
- *                             initialization when use GNU GCC compiler.
  */
 
 #include <rtthread.h>
 #include <rthw.h>
-
+#include <stm32f0xx.h>
+#include "board.h"
 #include "bt_app.h"
+#include "protocol_bt.h"
 
 #define	printk	rt_kprintf
+
+struct btapp_dev bt_dev;
+BT_STATUS bt_stat = BT_SHUTDOWN;
 
 /* btapp thread */
 static struct rt_thread btapp_thread;
 ALIGN(RT_ALIGN_SIZE)
 static char btapp_thread_stack[BTAPP_THREAD_STACK_SIZE];
-struct btapp_shell* btapp_sh;
 
-#if !defined (RT_USING_NEWLIB) && !defined (RT_USING_MINILIBC)
-int strcmp (const char *s1, const char *s2)
+BT_STATUS bt_status_update(void)
 {
-	while (*s1 && *s1 == *s2) s1++, s2++;
-
-	return (*s1 - *s2);
-}
-
-#if !defined(__CC_ARM) && !defined(__IAR_SYSTEMS_ICC__) && !defined(__ADSPBLACKFIN__) && !defined(_MSC_VER)
-int isalpha( int ch )
-{
-	return (unsigned int)((ch | 0x20) - 'a') < 26u;
-}
-
-int atoi(const char* s)
-{
-	long int v=0;
-	int sign=1;
-	while ( *s == ' '  ||  (unsigned int)(*s - 9) < 5u) s++;
-
-	switch (*s)
-	{
-	case '-': sign=-1;
-	case '+': ++s;
+	BT_STATUS old = bt_stat;
+	printk("old stat=0x%x\n", old);
+	bt_stat = (BT_STATUS) (BT_IND2_PIN_LEVEL <<1 | BT_IND1_PIN_LEVEL);
+	printk("new stat=0x%x\n", bt_stat);
+	if( (old == BT_LINK) && (bt_stat ==BT_POWER_ON)){
+		bt_stat = BT_SHUTDOWN;
+		printk("actually it's 0x%x\n", bt_stat);
 	}
-
-	while ((unsigned int) (*s - '0') < 10u)
-	{
-		v=v*10+*s-'0'; ++s;
-	}
-
-	return sign==-1?-v:v;
+	return bt_stat;
 }
 
-int isprint(unsigned char ch)
+static void bt_reset(void)
 {
-    return (unsigned int)(ch - ' ') < 127u - ' ';
+	BT_RESET_EN;
+	rt_thread_delay(1);
+	BT_RESET_DIS;
+	rt_thread_delay(49);
 }
-#endif
-#endif
+
+static void bt_standby(void)
+{
+	BT_PAIRING_EN;
+	rt_thread_delay(25);
+	BT_PAIRING_DIS;
+}
+
+/* Resume BM57 from Shutdown State by WAKEUP low active control.*/
+static void bt_resume(void)
+{
+	if(bt_stat != BT_SHUTDOWN) return;
+	BT_WAKEUP_EN;
+	rt_thread_delay(10);
+	BT_WAKEUP_DIS;
+}
 
 static rt_err_t btapp_rx_ind(rt_device_t dev, rt_size_t size)
 {
-	RT_ASSERT(btapp_sh != RT_NULL);
-
 	/* release semaphore to let btapp thread rx data */
-	//rt_sem_release(&btapp_sh->rx_sem);
+	rt_sem_release(&bt_dev.rx_sem);
 
 	return RT_EOK;
 }
@@ -88,7 +77,7 @@ static rt_err_t btapp_rx_ind(rt_device_t dev, rt_size_t size)
 /**
  * @ingroup btapp
  *
- * This function sets the input device of btapp btapp_sh.
+ * This function sets the input device of bt_dev.
  *
  * @param device_name the name of new input device. "usart1", "usart2"...
  */
@@ -96,17 +85,10 @@ void btapp_set_device(const char* device_name)
 {
 	rt_device_t dev = RT_NULL;
 
-	RT_ASSERT(btapp_sh != RT_NULL);
 	dev = rt_device_find(device_name);
 	if (dev != RT_NULL && rt_device_open( dev, RT_DEVICE_OFLAG_RDWR) == RT_EOK)
 	{
-		if (btapp_sh->device != RT_NULL)
-		{
-			/* close old btapp device */
-			rt_device_close(btapp_sh->device);
-		}
-
-		btapp_sh->device = dev;
+		bt_dev.device = dev;
 		rt_device_set_rx_indicate(dev, btapp_rx_ind);
 	}
 	else
@@ -115,126 +97,198 @@ void btapp_set_device(const char* device_name)
 	}
 }
 
-/**
- * @ingroup btapp
- *
- * This function returns current btapp btapp_sh input device.
- *
- * @return the btapp btapp_sh input device name is returned.
- */
-const char* btapp_get_device()
-{
-	RT_ASSERT(btapp_sh != RT_NULL);
-	return btapp_sh->device->parent.name;
-}
-
 /* running the command from bt channel */
-void btapp_run_line(struct btapp_parser* parser, const char *line)
+void btapp_run_line(const char *line)
 {
-	const char* err_str;
 
-	btapp_parser_run(parser, (unsigned char*)line);
-
-	/* compile node root */
-	if (btapp_errno() == 0)
-	{
-		btapp_compiler_run(parser->root);
-	}
-	else
-	{
-		err_str = btapp_error_string(btapp_errno());
-		printk("%s\n", err_str);
-	}
-
-	/* run virtual machine */
-	if (btapp_errno() == 0)
-	{
-		char ch;
-		btapp_vm_run();
-
-		ch = (unsigned char)btapp_stack_bottom();
-		if (ch > 0x20 && ch < 0x7e)
-		{
-			printk("\t'%c', %d, 0x%08x\n",
-				(unsigned char)btapp_stack_bottom(),
-				(unsigned int)btapp_stack_bottom(),
-				(unsigned int)btapp_stack_bottom());
-		}
-		else
-		{
-			printk("\t%d, 0x%08x\n",
-				(unsigned int)btapp_stack_bottom(),
-				(unsigned int)btapp_stack_bottom());
-		}
-	}
-
-    btapp_flush(parser);
 }
 
-struct btapp_shell _btapp_sh;
+/* scan a byte from bt or a finsh command line */
+static rt_uint8_t sh_buf[80];
+rt_size_t scan_buffer(rt_device_t dev,
+                         void     *buffer,
+                         rt_size_t   size)
+{
+#ifdef RT_USING_FINSH
+/*	if(check finsh commnd line first){
+		return size bytes from finsh buffer;
+		{
+	else*/
+#endif
+	{
+		return rt_device_read(dev, 0, buffer, size);
+	}
+}
+
+parsing_led_command(rt_uint8_t *buf, rt_uint8_t len)
+{
+	rt_uint8_t i;
+	for(i = 0; i < len; i++){
+		printk("%x ", buf[i]);
+	}
+	printk("  ");
+	for(i = 0; i < len; i++){
+		printk("%c ", buf[i]);
+	}
+	printk("\n");
+}
+
 void btapp_thread_entry(void* parameter)
 {
     char ch;
 
-    btapp_pinit(&btapp_sh->parser);/* init parser */
+	bt_reset(); /* BM57 is first init */
 
-	while (1)
-	{
+	while (1){
 		/* wait receive */
-		//if (rt_sem_take(&btapp_sh->rx_sem, RT_WAITING_FOREVER) != RT_EOK) continue;
+		if (rt_sem_take(&bt_dev.rx_sem, RT_WAITING_FOREVER) != RT_EOK) continue;
 
-		/* read one character from device */
-		while (rt_device_read(btapp_sh->device, 0, &ch, 1) == 1)
-		{
-			/* handle CR key */
-			if (ch == '\r')
-			{
-				char next;
+		/* read header from device */
+		if( (scan_buffer(bt_dev.device, &ch, 1) == 1) &&
+			(btp_h_valid(ch))) { /* valid commands */
+			BTP_HEADER btp_h;
+			rt_uint8_t *ptr = (rt_uint8_t *)&btp_h;
+			*ptr++ = ch;
+			if(scan_buffer(bt_dev.device, ptr, BTP_HEAD_SIZE -1 )
+				== (BTP_HEAD_SIZE-1 ) ) {/* rest of the header*/
+				if(checkbtp_header(&btp_h))	{
+					/* parsing header and read the content*/
+					rt_uint8_t buf[MAX_BTP_LEN];
+					if(scan_buffer(bt_dev.device, buf, btp_h.len )
+						!= btp_h.len ){
+						printk("read content failure\n");
+						continue;
+					}else{
+						rt_uint8_t i, cks;
+						//checksum
+						cks = 0;
+						for(i = 0; i < BTP_HEAD_SIZE; i++) cks+= ptr[i];
+						for(i = 0; i < btp_h.len; i ++) cks+= buf[i];
+						if(cks == buf[i] ){
+							//parsing it
+							parsing_led_command(buf, btp_h.len );
 
-				if (rt_device_read(btapp_sh->device, 0, &next, 1) == 1)
-					ch = next;
-				else ch = '\r';
+							printk("OK\n");
+						}else{
+							continue;
+						}
+					}
+				}else{
+					printk("bad header\n");
+				}
+			}else{
+				printk("read header failure\n");
 			}
-			/* handle end of line, break */
-			if (ch == '\r' || ch == '\n')
-			{
-				/* change to ';' and break */
-				btapp_sh->line[btapp_sh->line_position] = ';';
-
-				if (btapp_sh->line_position != 0) btapp_run_line(&btapp_sh->parser, btapp_sh->line);
-				else printk("\n");
-				printk("OK\n");
-				memset(btapp_sh->line, 0, sizeof(btapp_sh->line));
-				btapp_sh->line_position = 0;
-
-				break;
-			}
-
-			/* it's a large line, discard it */
-			if (btapp_sh->line_position >= BTAPP_CMD_SIZE) btapp_sh->line_position = 0;
-
-			/* normal character */
-			btapp_sh->line[btapp_sh->line_position] = ch; ch = 0;
-			btapp_sh->line_position ++;
-		} /* end of device read */
+		}else{
+			printk("read start code failure\n");
+		}/* end of device read */
 	}
+}
+
+/*
+output pins
+#define BT_RST_N_PIN    		GPIO_Pin_0
+#define BT_RST_N_GPIO_PORT  	GPIOB
+#define BT_RST_N_GPIO_CLK   	RCC_AHBPeriph_GPIOB
+
+#define BT_WAKEUP_PIN       	GPIO_Pin_1
+#define BT_WAKEUP_GPIO_PORT     GPIOB
+#define BT_WAKEUP_GPIO_CLK      RCC_AHBPeriph_GPIOB
+
+#define BT_PAIRING_PIN 			GPIO_Pin_8
+#define BT_PAIRING_GPIO_PORT    GPIOA
+#define BT_PAIRING_GPIO_CLK     RCC_AHBPeriph_GPIOA
+
+BM57 P07
+L: MCU/host Informs BM57 that UART data will be transmitted out after 1 ms
+#define BT_RX_IND_PIN 			GPIO_Pin_15
+#define BT_RX_IND_GPIO_PORT    	GPIOA
+#define BT_RX_IND_GPIO_CLK     	RCC_AHBPeriph_GPIOA
+
+input pins
+#define BT_IND1_PIN       		GPIO_Pin_6
+#define BT_IND1_GPIO_PORT     	GPIOB
+#define BT_IND1_GPIO_CLK      	RCC_AHBPeriph_GPIOB
+
+#define BT_IND2_PIN       		GPIO_Pin_7
+#define BT_IND2_GPIO_PORT     	GPIOB
+#define BT_IND2_GPIO_CLK      	RCC_AHBPeriph_GPIOB
+*/
+void bt_hw_init(void)
+{
+    GPIO_InitTypeDef GPIO_InitStructure;
+	NVIC_InitTypeDef NVIC_InitStructure;
+	EXTI_InitTypeDef EXTI_InitStructure;
+
+  	/* GPIOA Periph clock enable */
+  	RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA, ENABLE);
+
+  	/* Configure  in output pushpull mode */
+	GPIO_InitStructure.GPIO_Pin = BT_PAIRING_PIN | BT_RX_IND_PIN;
+
+  	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
+  	GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
+  	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+  	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
+  	GPIO_Init(GPIOA, &GPIO_InitStructure);
+
+  	/* GPIOA Periph clock enable */
+  	RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOB, ENABLE);
+
+  	/* Configure  in output pushpull mode */
+	GPIO_InitStructure.GPIO_Pin = BT_RST_N_PIN | BT_WAKEUP_PIN|BT_PAIRING_PIN;
+
+  	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
+  	GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
+  	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+  	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
+  	GPIO_Init(GPIOB, &GPIO_InitStructure);
+
+	////////////////
+  	GPIO_InitStructure.GPIO_Pin = BT_IND1_PIN | BT_IND2_PIN;
+  	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
+  	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
+  	GPIO_Init(GPIOB, &GPIO_InitStructure);
+
+  	/* Enable SYSCFG clock */
+  	RCC_APB2PeriphClockCmd(RCC_APB2Periph_SYSCFG, ENABLE);
+
+  	/* Connect EXTI6 Line to PB6 pin */
+  	SYSCFG_EXTILineConfig(BT_IND1_EXTI_PORT, BT_IND1_EXTI_SOURCE);
+
+  	/* Connect EXTI7 Line to PB7 pin */
+  	SYSCFG_EXTILineConfig(BT_IND2_EXTI_PORT, BT_IND2_EXTI_SOURCE);
+
+  	/* Configure EXTI6 line */
+  	EXTI_InitStructure.EXTI_Line = BT_IND1_EXTI_LINE;
+  	EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
+  	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Rising_Falling;
+  	EXTI_InitStructure.EXTI_LineCmd = ENABLE;
+  	EXTI_Init(&EXTI_InitStructure);
+
+  	/* Configure EXTI7 line */
+  	EXTI_InitStructure.EXTI_Line = BT_IND2_EXTI_LINE;
+  	EXTI_Init(&EXTI_InitStructure);
+
+  	/* Enable and set EXTI4_15 Interrupt */
+  	NVIC_InitStructure.NVIC_IRQChannel = BT_IND_EXTI_IRQn;
+  	NVIC_InitStructure.NVIC_IRQChannelPriority = 0x00;
+  	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+  	NVIC_Init(&NVIC_InitStructure);
 }
 
 /*
  * @ingroup btapp
  *
- * This function will initialize btapp btapp_sh
+ * This function will initialize bt_dev
  */
-void btapp_init(const char* device_name)
+void btapp_init(void)
 {
 	rt_err_t result;
 
-	/* create or set btapp_sh structure */
-	btapp_sh = &_btapp_sh;
+	bt_hw_init();
 
-	memset(btapp_sh, 0, sizeof(struct btapp_shell));
-
-	//rt_sem_init(&(btapp_sh->rx_sem), "btapprx", 0, 0);
+	rt_sem_init(&bt_dev.rx_sem, "bt_rx", 0, 0);
 	result = rt_thread_init(&btapp_thread,
 		"btapp",
 		btapp_thread_entry, RT_NULL,
@@ -244,5 +298,21 @@ void btapp_init(const char* device_name)
 	if (result == RT_EOK)
 		rt_thread_startup(&btapp_thread);
 
-	btapp_set_device(device_name);
+	btapp_set_device(BTSPP_DEVICE); /*release semaphore to make read thread go */
 }
+
+#ifdef RT_USING_FINSH
+#include <finsh.h>
+/* using command line to simulate the input buffer from bluetooth. */
+void cmd_btapp(	rt_uint8_t *packet)
+{
+	int i=0;
+	rt_memset(sh_buf,0, 80);
+	while( (i < 80) && packet[i]){
+		sh_buf[i] = packet[i];
+		i ++;
+	}
+}
+
+FINSH_FUNCTION_EXPORT(cmd_btapp, enter a command to bt parser);
+#endif

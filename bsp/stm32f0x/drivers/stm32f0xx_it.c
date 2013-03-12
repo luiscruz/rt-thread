@@ -31,6 +31,7 @@
 #include <stm32f0xx.h>
 #include <rtthread.h>
 #include "board.h"
+#include "bt_app.h"
 
 /** @addtogroup STM32F0-Discovery_Demo
   * @{
@@ -70,6 +71,67 @@ void SVC_Handler(void)
 {
 }
 
+/**
+  * @brief  This function handles External line 0 to 1 interrupt request.
+  * @param  None
+  * @retval None
+  */
+void EXTI0_1_IRQHandler(void)
+{
+	/* enter interrupt */
+    rt_interrupt_enter();
+	if(EXTI_GetITStatus(EXTI_Line0) != RESET)
+	{
+		/* Toggle LED2 */
+		//STM_EVAL_LEDToggle(LED2);
+
+		/* Clear the EXTI line 0 pending bit */
+		EXTI_ClearITPendingBit(EXTI_Line0);
+	}
+	/* leave interrupt */
+    rt_interrupt_leave();
+}
+
+/**
+  * @brief  This function handles External lines 4 to 15 interrupt request.
+  * @param  None
+  * @retval None
+  */
+void EXTI4_15_IRQHandler(void)
+{
+	extern void bt_status_update(void);
+	/* enter interrupt */
+    rt_interrupt_enter();
+	if(EXTI_GetITStatus(BT_IND1_EXTI_LINE) != RESET)
+	{
+		/* Toggle LED1 */
+		//STM_EVAL_LEDToggle(LED1);
+		bt_status_update();
+
+		/* Clear the EXTI line 8 pending bit */
+		EXTI_ClearITPendingBit(BT_IND1_EXTI_LINE);
+	}
+
+	if(EXTI_GetITStatus(BT_IND2_EXTI_LINE) != RESET)
+	{
+		/* Toggle LED3 */
+		//STM_EVAL_LEDToggle(LED3);
+		bt_status_update();
+		/* Clear the EXTI line 9 pending bit */
+		EXTI_ClearITPendingBit(BT_IND2_EXTI_LINE);
+	}
+
+	if(EXTI_GetITStatus(EXTI_Line13) != RESET)
+	{
+		/* Toggle LED4 */
+		//STM_EVAL_LEDToggle(LED4);
+
+		/* Clear the EXTI line 13 pending bit */
+		EXTI_ClearITPendingBit(EXTI_Line13);
+	}
+    /* leave interrupt */
+    rt_interrupt_leave();
+}
 
 /*******************************************************************************
 * Function Name  : USART1_IRQHandler

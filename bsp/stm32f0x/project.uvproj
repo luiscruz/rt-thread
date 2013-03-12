@@ -378,7 +378,7 @@
             <ScatterFile></ScatterFile>
             <IncludeLibs></IncludeLibs>
             <IncludeLibsPath></IncludeLibsPath>
-            <Misc></Misc>
+            <Misc>--keep __fsym_* --keep __vsym_*</Misc>
             <LinkerInputFile></LinkerInputFile>
             <DisabledWarnings></DisabledWarnings>
           </LDads>
@@ -397,6 +397,16 @@
               <FileName>startup.c</FileName>
               <FileType>1</FileType>
               <FilePath>applications\startup.c</FilePath>
+            </File>
+            <File>
+              <FileName>bt_app.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\applications\bt_app.c</FilePath>
+            </File>
+            <File>
+              <FileName>led.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\applications\led.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -422,6 +432,11 @@
               <FileName>usart.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\drivers\usart.c</FilePath>
+            </File>
+            <File>
+              <FileName>protocol_bt.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\drivers\protocol_bt.c</FilePath>
             </File>
           </Files>
         </Group>
