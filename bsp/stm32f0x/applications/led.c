@@ -60,7 +60,7 @@ struct led_dev leds[] ={
 	COLOR_RED,
 	LED_CROWN_GPIO_PORT,
 	LED_CROWN_PIN,0,
-	{100, LED_BLINK, 0,0,0}}};
+	{100, LED_BLINK, 0}}};
 
 /* set up led behavior */
 void rt_hw_led(rt_uint8_t led, rt_uint16_t ticks, rt_uint8_t on, rt_uint32_t cnt)
@@ -75,8 +75,8 @@ void rt_hw_led(rt_uint8_t led, rt_uint16_t ticks, rt_uint8_t on, rt_uint32_t cnt
 	leds[led].mode.on_ratio = on;
 	leds[led].mode.ticks = ticks>=(LED_TIMER_PERIOD<<1)?ticks:(LED_TIMER_PERIOD<<1);
 	leds[led].mode.cnt = cnt;
-	leds[led].mode.on_ticks = ((rt_uint32_t)(leds[led].mode.ticks) * leds[led].mode.on_ratio) / 100;
-	leds[led].mode.now=0;
+	leds[led].on_ticks = ((rt_uint32_t)(leds[led].mode.ticks) * leds[led].mode.on_ratio) / 100;
+	leds[led].now=0;
 	//rt_mutex_release(led_mux);
 }
 
@@ -120,18 +120,18 @@ static void led_timer_func(void* parameter)
 		if(pled->mode.on_ratio > 100) {
 			/* breathing effect */
 		}else{
-			if(pled->mode.now < pled->mode.on_ticks)
+			if(pled->now < pled->on_ticks)
 				led_on(pled);
 			else
 				led_off(pled);
 
-			pled->mode.now += LED_TIMER_PERIOD;
+			pled->now += LED_TIMER_PERIOD;
 		}
 		/* mutex unlock*/
-		if(pled->mode.now >= pled->mode.ticks) {
+		if(pled->now >= pled->mode.ticks) {
 				pled->mode.cnt --;
 				//if(!pled->mode.cnt) led_off(pled);
-				pled->mode.now =0;
+				pled->now =0;
 				//led_off(pled);
 		}
 		//rt_mutex_release(led_mux);

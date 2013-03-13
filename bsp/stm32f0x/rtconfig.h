@@ -74,7 +74,7 @@
 
 /* SECTION: finsh, a C-Express shell */
 #ifdef STM32F051
-#define RT_USING_FINSH
+//#define RT_USING_FINSH
 #define	FINSH_THREAD_PRIORITY	((RT_THREAD_PRIORITY_MAX<1)/3)
 #endif
 /* Using symbol table */

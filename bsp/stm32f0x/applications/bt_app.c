@@ -29,15 +29,42 @@ static struct rt_thread btapp_thread;
 ALIGN(RT_ALIGN_SIZE)
 static char btapp_thread_stack[BTAPP_THREAD_STACK_SIZE];
 
+static void dump_stat(BT_STATUS st)
+{
+	switch(st){
+	case BT_LINK:
+		printk("BT_LINK\n");
+		break;
+	case BT_LINK_TX:
+		printk("BT_LINK_TX\n");
+		break;
+	case BT_ACCESS:
+		printk("BT_ACCESS\n");
+		break;
+	case BT_POWER_ON:
+		printk("BT_POWER_ON\n");
+		break;
+	case BT_SHUTDOWN:
+		printk("BT_SHUTDOWN\n");
+		break;
+	default:
+		break;
+	};
+
+}
+
 BT_STATUS bt_status_update(void)
 {
 	BT_STATUS old = bt_stat;
-	printk("old stat=0x%x\n", old);
+	printk("old stat:=0x%x ", old);
+	dump_stat(old);
 	bt_stat = (BT_STATUS) (BT_IND2_PIN_LEVEL <<1 | BT_IND1_PIN_LEVEL);
-	printk("new stat=0x%x\n", bt_stat);
+	printk("new stat=0x%x ", bt_stat);
+	dump_stat(bt_stat);
 	if( (old == BT_LINK) && (bt_stat ==BT_POWER_ON)){
 		bt_stat = BT_SHUTDOWN;
 		printk("actually it's 0x%x\n", bt_stat);
+		dump_stat(bt_stat);
 	}
 	return bt_stat;
 }
@@ -70,7 +97,7 @@ static rt_err_t btapp_rx_ind(rt_device_t dev, rt_size_t size)
 {
 	/* release semaphore to let btapp thread rx data */
 	rt_sem_release(&bt_dev.rx_sem);
-	//printk("rx_ind: %d\n", size);
+	//printk("\nrx_ind: %d\n", size);
 	return RT_EOK;
 }
 
@@ -97,43 +124,7 @@ void btapp_set_device(const char* device_name)
 	}
 }
 
-/* running the command from bt channel */
-void btapp_run_line(const char *line)
-{
-
-}
-
-/* scan a byte from bt or a finsh command line */
-static rt_uint8_t sh_buf[80];
-rt_size_t scan_buffer(rt_device_t dev,
-                         void     *buffer,
-                         rt_size_t   size)
-{
-#ifdef RT_USING_FINSH
-/*	if(check finsh commnd line first){
-		return size bytes from finsh buffer;
-		{
-	else*/
-#endif
-	{
-		return rt_device_read(dev, 0, buffer, size);
-	}
-}
-
-parsing_led_command(rt_uint8_t *buf, rt_uint8_t len)
-{
-	rt_uint8_t i;
-	for(i = 0; i < len; i++){
-		printk("%x ", buf[i]);
-	}
-	printk("  ");
-	for(i = 0; i < len; i++){
-		printk("%c ", buf[i]);
-	}
-	printk("\n");
-}
-
-#if 1
+#if 0
 void btapp_thread_entry(void* parameter)
 {
     char ch;
@@ -143,11 +134,11 @@ void btapp_thread_entry(void* parameter)
 
 	while (1){
 		/* wait receive */
-		if (rt_sem_take(&bt_dev.rx_sem, RT_WAITING_FOREVER) != RT_EOK) continue;
+		//if (rt_sem_take(&bt_dev.rx_sem, RT_WAITING_FOREVER) != RT_EOK) continue;
 
 		/* read header from device */
-		scan_buffer(bt_dev.device, &ch, 1);
-		printk("0x%02x %c ", ch, ch);
+		scan_buffer(bt_dev.device, &ch, 7);
+		//printk("0x%02x %c ", ch, ch);
 	}
 }
 #else
@@ -159,8 +150,11 @@ void btapp_thread_entry(void* parameter)
 	bt_reset(); 	/* BM57 is reset for the first init */
 
 	while (1){
+#if 1
+			process_led_command((struct btapp_dev *)parameter);
+#else
 		/* wait receive */
-		if (rt_sem_take(&bt_dev.rx_sem, RT_WAITING_FOREVER) != RT_EOK) continue;
+		//if (rt_sem_take(&bt_dev.rx_sem, RT_WAITING_FOREVER) != RT_EOK) continue;
 
 		/* read header from device */
 		if( (scan_buffer(bt_dev.device, &ch, 1) == 1) &&
@@ -170,9 +164,11 @@ void btapp_thread_entry(void* parameter)
 			*ptr++ = ch;
 			if(scan_buffer(bt_dev.device, ptr, BTP_HEAD_SIZE -1 )
 				== (BTP_HEAD_SIZE-1 ) ) {/* rest of the header*/
+				//printk("header 1\n");
 				if(checkbtp_header(&btp_h))	{
 					/* parsing header and read the content*/
 					rt_uint8_t buf[MAX_BTP_LEN];
+					//printk("header 2\n");
 					if(scan_buffer(bt_dev.device, buf, btp_h.len )
 						!= btp_h.len ){
 						printk("read content failure\n");
@@ -180,15 +176,18 @@ void btapp_thread_entry(void* parameter)
 					}else{
 						rt_uint8_t i, cks;
 						//checksum
+						//printk("header 3\n");
 						cks = 0;
 						for(i = 0; i < BTP_HEAD_SIZE; i++) cks+= ptr[i];
-						for(i = 0; i < btp_h.len; i ++) cks+= buf[i];
+						for(i = 0; i < btp_h.len-1; i ++) cks+= buf[i];
+						printk("checksum(0x%x,0x%x)\n", cks, buf[i]);
 						if(cks == buf[i] ){
 							//parsing it
 							parsing_led_command(buf, btp_h.len );
 
 							printk("OK\n");
 						}else{
+							printk("error checksum\n");
 							continue;
 						}
 					}
@@ -201,6 +200,7 @@ void btapp_thread_entry(void* parameter)
 		}else{
 			printk("read start code failure\n");
 		}/* end of device read */
+#endif
 	}
 }
 #endif
@@ -311,7 +311,7 @@ void btapp_init(void)
 	rt_sem_init(&bt_dev.rx_sem, "bt_rx", 0, 0);
 	result = rt_thread_init(&btapp_thread,
 		"btapp",
-		btapp_thread_entry, RT_NULL,
+		btapp_thread_entry, (void *)&bt_dev,
 		&btapp_thread_stack[0], sizeof(btapp_thread_stack),
 		BTAPP_THREAD_PRIORITY, 10);
 

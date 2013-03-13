@@ -20,11 +20,11 @@
 #include "board.h"
 
 #ifndef BTAPP_THREAD_PRIORITY
-#define BTAPP_THREAD_PRIORITY (RT_THREAD_PRIORITY_MAX>>3)
+#define BTAPP_THREAD_PRIORITY (RT_THREAD_PRIORITY_MAX/2)	//(RT_THREAD_PRIORITY_MAX>>3)
 #endif
 
 #ifndef BTAPP_THREAD_STACK_SIZE
-#define BTAPP_THREAD_STACK_SIZE 1024
+#define BTAPP_THREAD_STACK_SIZE 2048
 #endif
 
 #define BTAPP_CMD_SIZE		80
@@ -69,6 +69,7 @@ L: MCU/host Informs BM57 that UART data will be transmitted out after 1 ms
 #define	BT_RX_IND_EN			GPIO_SetBits(BT_PAIRING_GPIO_PORT, BT_PAIRING_PIN)
 
 /* input pins */
+/* BTP04 */
 #define BT_IND1_PIN       		GPIO_Pin_6
 #define BT_IND1_GPIO_PORT     	GPIOB
 #define BT_IND1_GPIO_CLK      	RCC_AHBPeriph_GPIOB
@@ -77,6 +78,7 @@ L: MCU/host Informs BM57 that UART data will be transmitted out after 1 ms
 #define	BT_IND1_EXTI_LINE		EXTI_Line6
 #define	BT_IND1_PIN_LEVEL		GPIO_ReadInputDataBit(BT_IND1_GPIO_PORT, BT_IND1_PIN)
 
+/* BTP22*/
 #define BT_IND2_PIN       		GPIO_Pin_7
 #define BT_IND2_GPIO_PORT     	GPIOB
 #define BT_IND2_GPIO_CLK      	RCC_AHBPeriph_GPIOB
@@ -87,11 +89,11 @@ L: MCU/host Informs BM57 that UART data will be transmitted out after 1 ms
 
 #define	BT_IND_EXTI_IRQn        EXTI4_15_IRQn
 
-/* 							BTP04	BTP22
- * LINK	w/o USART TX		0		0
- * LINK	w/ USART  TX		1		0
- * ACCESS					0		1
- * POWER ON					1		1
+/* 							BTP22  BTP04
+ * LINK	w/o USART TX		0      0
+ * LINK	w/ USART  TX		0      1
+ * ACCESS					1      0
+ * POWER ON					1      1
  */
 typedef enum _bt_status {BT_LINK=0x00,
 		BT_LINK_TX=0x01,

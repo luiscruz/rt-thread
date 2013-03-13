@@ -95,14 +95,13 @@
 #define	MASK_LED_FACE3		(0x40)
 #define	MASK_LED_CROWN		(0x80)
 
-
+#pragma pack(1)
 struct led_mode{
 	rt_uint16_t ticks; 	/*  period of the on-off in ticks, 1tick=10ms */
 	rt_uint8_t on_ratio;
 	rt_uint32_t cnt;	/* repeat times, -1 : infinite */
-	rt_uint16_t now;
-	rt_uint16_t on_ticks;
 };
+#pragma pack()
 
 struct led_dev{
 	rt_uint8_t led;
@@ -111,6 +110,8 @@ struct led_dev{
 	uint16_t GPIO_Pin;
 	rt_uint8_t set;
 	struct led_mode mode;
+	rt_uint16_t now;
+	rt_uint16_t on_ticks;
 };
 
 #define LED_PHONE		(0x00)

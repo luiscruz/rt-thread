@@ -78,14 +78,16 @@ static rt_size_t rt_serial_read (rt_device_t dev, rt_off_t pos, void* buffer, rt
 	rt_uint8_t* ptr;
 	rt_err_t err_code;
 	struct stm32_serial_device* uart;
-
+	//int retry=200;
 	ptr = buffer;
 	err_code = RT_EOK;
 	uart = (struct stm32_serial_device*)dev->user_data;
 
 	if (dev->flag & RT_DEVICE_FLAG_INT_RX)
 	{
+		//rt_kprintf("\n(%d) ",size);
 		/* interrupt mode Rx */
+		//while (size && retry--)
 		while (size)
 		{
 			rt_base_t level;
@@ -111,11 +113,15 @@ static rt_size_t rt_serial_read (rt_device_t dev, rt_off_t pos, void* buffer, rt
 
 				/* enable interrupt */
 				rt_hw_interrupt_enable(level);
+				//rt_thread_delay(1); /* 1 ticks = 10ms */
+				//rt_kprintf("\nE(%d) \n",size);
 				break;
+				//continue;
 			}
 
 			/* enable interrupt */
 			rt_hw_interrupt_enable(level);
+			//rt_kprintf("\n>(%d)\n",size);
 		}
 	}
 	else
