@@ -70,7 +70,7 @@ static rt_err_t btapp_rx_ind(rt_device_t dev, rt_size_t size)
 {
 	/* release semaphore to let btapp thread rx data */
 	rt_sem_release(&bt_dev.rx_sem);
-
+	//printk("rx_ind: %d\n", size);
 	return RT_EOK;
 }
 
@@ -133,11 +133,30 @@ parsing_led_command(rt_uint8_t *buf, rt_uint8_t len)
 	printk("\n");
 }
 
+#if 1
 void btapp_thread_entry(void* parameter)
 {
     char ch;
 
-	bt_reset(); /* BM57 is first init */
+	BT_PAIRING_DIS; /* disable standy mode */
+	bt_reset(); 	/* BM57 is reset for the first init */
+
+	while (1){
+		/* wait receive */
+		if (rt_sem_take(&bt_dev.rx_sem, RT_WAITING_FOREVER) != RT_EOK) continue;
+
+		/* read header from device */
+		scan_buffer(bt_dev.device, &ch, 1);
+		printk("0x%02x %c ", ch, ch);
+	}
+}
+#else
+void btapp_thread_entry(void* parameter)
+{
+    char ch;
+
+	BT_PAIRING_DIS; /* disable standy mode */
+	bt_reset(); 	/* BM57 is reset for the first init */
 
 	while (1){
 		/* wait receive */
@@ -184,6 +203,7 @@ void btapp_thread_entry(void* parameter)
 		}/* end of device read */
 	}
 }
+#endif
 
 /*
 output pins

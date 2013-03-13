@@ -38,19 +38,21 @@
  * output pins */
 //void GPIO_SetBits(GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin);
 //void GPIO_ResetBits(GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin);
-
+/* BM57SPP P22 */
 #define BT_RST_N_PIN    		GPIO_Pin_0
 #define BT_RST_N_GPIO_PORT  	GPIOB
 #define BT_RST_N_GPIO_CLK   	RCC_AHBPeriph_GPIOB
 #define	BT_RESET_EN				GPIO_ResetBits(BT_RST_N_GPIO_PORT, BT_RST_N_PIN)
 #define	BT_RESET_DIS			GPIO_SetBits(BT_RST_N_GPIO_PORT, BT_RST_N_PIN)
 
+/* BM57SPP P09 */
 #define BT_WAKEUP_PIN       	GPIO_Pin_1
 #define BT_WAKEUP_GPIO_PORT     GPIOB
 #define BT_WAKEUP_GPIO_CLK      RCC_AHBPeriph_GPIOB
 #define	BT_WAKEUP_DIS			GPIO_ResetBits(BT_WAKEUP_GPIO_PORT, BT_WAKEUP_PIN)
 #define	BT_WAKEUP_EN			GPIO_SetBits(BT_WAKEUP_GPIO_PORT, BT_WAKEUP_PIN)
 
+/* BM57SPP P25 */
 #define BT_PAIRING_PIN 			GPIO_Pin_8
 #define BT_PAIRING_GPIO_PORT    GPIOA
 #define BT_PAIRING_GPIO_CLK     RCC_AHBPeriph_GPIOA
@@ -87,7 +89,7 @@ L: MCU/host Informs BM57 that UART data will be transmitted out after 1 ms
 
 /* 							BTP04	BTP22
  * LINK	w/o USART TX		0		0
- * LINK	w/o USART TX		1		0
+ * LINK	w/ USART  TX		1		0
  * ACCESS					0		1
  * POWER ON					1		1
  */

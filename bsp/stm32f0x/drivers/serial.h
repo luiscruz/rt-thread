@@ -18,7 +18,7 @@
 #include <rthw.h>
 #include <rtthread.h>
 
-/* STM32F10x library definitions */
+/* STM32F0xx library definitions */
 #include <stm32f0xx.h>
 
 #define UART_RX_BUFFER_SIZE		64

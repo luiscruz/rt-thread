@@ -125,7 +125,7 @@ static rt_size_t rt_serial_read (rt_device_t dev, rt_off_t pos, void* buffer, rt
 		{
 			while (uart->uart_device->ISR & USART_FLAG_RXNE)
 			{
-				*ptr = uart->uart_device->RDR & 0xff;
+				*ptr = uart->uart_device->RDR & (rt_uint16_t)0x1ff;
 				ptr ++;
 			}
 		}
@@ -229,7 +229,7 @@ static rt_size_t rt_serial_write (rt_device_t dev, rt_off_t pos, const void* buf
 				}
 
 				while (!(uart->uart_device->ISR & USART_FLAG_TXE));
-				uart->uart_device->TDR = (*ptr & 0x1FF);
+				uart->uart_device->TDR = (*ptr & (rt_uint16_t)0x1FF);
 
 				++ptr; --size;
 			}
@@ -240,7 +240,7 @@ static rt_size_t rt_serial_write (rt_device_t dev, rt_off_t pos, const void* buf
 			while (size)
 			{
 				while (!(uart->uart_device->ISR & USART_FLAG_TXE));
-				uart->uart_device->TDR = (*ptr & 0x1FF);
+				uart->uart_device->TDR = (*ptr & (rt_uint16_t)0x1FF);
 
 				++ptr; --size;
 			}
@@ -326,7 +326,7 @@ void rt_hw_serial_isr(rt_device_t device)
 			level = rt_hw_interrupt_disable();
 
 			/* save character */
-			uart->int_rx->rx_buffer[uart->int_rx->save_index] = uart->uart_device->RDR & 0xff;
+			uart->int_rx->rx_buffer[uart->int_rx->save_index] = uart->uart_device->RDR & (rt_uint16_t)0x1ff;
 			uart->int_rx->save_index ++;
 			if (uart->int_rx->save_index >= UART_RX_BUFFER_SIZE)
 				uart->int_rx->save_index = 0;

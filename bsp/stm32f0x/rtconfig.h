@@ -33,16 +33,16 @@
 /* Using Semaphore*/
 #define RT_USING_SEMAPHORE
 
-/* Using Mutex */
+/* Using Mutex comment out for ship */
 #define RT_USING_MUTEX
 
-/* Using Event */
+/* Using Event comment out for ship */
 #define RT_USING_EVENT
 
-/* Using MailBox */
+/* Using MailBox comment out for ship */
 #define RT_USING_MAILBOX
 
-/* Using Message Queue */
+/* Using Message Queue, comment out for ship */
 #define RT_USING_MESSAGEQUEUE
 
 /* SECTION: Memory Management */

@@ -270,7 +270,7 @@ void rt_hw_usart_init()
 
 	/* uart init */
 #ifdef RT_USING_UART1
-	USART_InitStructure.USART_BaudRate = 115200;
+	USART_InitStructure.USART_BaudRate = 9600;	/*115200;*/
 	USART_InitStructure.USART_WordLength = USART_WordLength_8b;
 	USART_InitStructure.USART_StopBits = USART_StopBits_1;
 	USART_InitStructure.USART_Parity = USART_Parity_No;
@@ -279,11 +279,11 @@ void rt_hw_usart_init()
 	USART_Init(COM_USART[0], &USART_InitStructure);
 
 	/* Enable USART1 */
-	USART_Cmd(COM_USART[0], ENABLE);
+	//USART_Cmd(COM_USART[0], ENABLE);
 	//USART_ClearFlag(COM_USART[0],USART_FLAG_TXE);
 	/* register uart1 */
 	rt_hw_serial_register(&uart1_device, "uart1",
-		RT_DEVICE_FLAG_RDWR | RT_DEVICE_FLAG_INT_RX | RT_DEVICE_FLAG_STREAM,
+		RT_DEVICE_FLAG_RDWR | RT_DEVICE_FLAG_INT_RX, /* | RT_DEVICE_FLAG_STREAM, binary mode */
 		&uart1);
 
 	/* enable interrupt */
