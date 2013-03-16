@@ -26,7 +26,7 @@
 /* Using Software Timer */
 /* #define RT_USING_TIMER_SOFT */
 #define RT_TIMER_THREAD_PRIO		4
-#define RT_TIMER_THREAD_STACK_SIZE	512
+#define RT_TIMER_THREAD_STACK_SIZE	1024
 #define RT_TIMER_TICK_PER_SECOND	10
 
 /* SECTION: IPC */
@@ -60,6 +60,7 @@
 /* Using Device System */
 #define RT_USING_DEVICE
 
+//#define	USART_DMA_MODE
 /* USART debug port: PA9,PA10 */
 #define RT_USING_UART1
 
@@ -74,7 +75,7 @@
 
 /* SECTION: finsh, a C-Express shell */
 #ifdef STM32F051
-//#define RT_USING_FINSH
+#define RT_USING_FINSH
 #define	FINSH_THREAD_PRIORITY	((RT_THREAD_PRIORITY_MAX<1)/3)
 #endif
 /* Using symbol table */
@@ -105,5 +106,31 @@
 #define DFS_FILESYSTEMS_MAX			2
 /* the max number of opened files 		*/
 #define DFS_FD_MAX					4
+
+/*
+ * SHIP BUILD config to save rom, sram and pins
+ *
+ */
+
+#ifdef SHIP_BUILD
+/* reducing the debug code to save the rom size and ram size */
+/* Thread Debug */
+#undef 	RT_DEBUG
+#undef 	RT_THREAD_DEBUG
+#undef 	RT_USING_OVERFLOW_CHECK
+#undef 	RT_TIMER_THREAD_STACK_SIZE
+#define RT_TIMER_THREAD_STACK_SIZE	512
+#undef	RT_USING_MUTEX
+#undef	RT_USING_EVENT
+#undef	RT_USING_MAILBOX
+#undef	RT_USING_MESSAGEQUEUE
+#undef	RT_USING_MEMPOOL
+
+#undef	RT_USING_UART2
+#undef	RT_USING_CONSOLE
+
+#undef	RT_USING_FINSH
+
+#endif
 
 #endif

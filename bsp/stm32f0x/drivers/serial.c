@@ -19,9 +19,10 @@
 #include <stm32f0xx_dma.h>
 #include <stm32f0xx_usart.h>
 
+#ifdef USART_DMA_MODE
 static void rt_serial_enable_dma(DMA_Channel_TypeDef* dma_channel,
 	rt_uint32_t address, rt_uint32_t size);
-
+#endif
 /**
  * @addtogroup STM32
  */
@@ -41,7 +42,7 @@ static rt_err_t rt_serial_init (rt_device_t dev)
 			uart->int_rx->read_index = 0;
 			uart->int_rx->save_index = 0;
 		}
-
+#ifdef USART_DMA_MODE
 		if (dev->flag & RT_DEVICE_FLAG_DMA_TX)
 		{
 			RT_ASSERT(uart->dma_tx->dma_channel != RT_NULL);
@@ -53,7 +54,7 @@ static rt_err_t rt_serial_init (rt_device_t dev)
 				sizeof(uart->dma_tx->data_node_mem_pool),
 				sizeof(struct stm32_serial_data_node));
 		}
-
+#endif
 		/* Enable USART */
 		USART_Cmd(uart->uart_device, ENABLE);
 
@@ -142,6 +143,7 @@ static rt_size_t rt_serial_read (rt_device_t dev, rt_off_t pos, void* buffer, rt
 	return (rt_uint32_t)ptr - (rt_uint32_t)buffer;
 }
 
+#ifdef USART_DMA_MODE
 static void rt_serial_enable_dma(DMA_Channel_TypeDef* dma_channel,
 	rt_uint32_t address, rt_uint32_t size)
 {
@@ -158,6 +160,7 @@ static void rt_serial_enable_dma(DMA_Channel_TypeDef* dma_channel,
 	/* enable DMA */
 	DMA_Cmd(dma_channel, ENABLE);
 }
+#endif
 
 static rt_size_t rt_serial_write (rt_device_t dev, rt_off_t pos, const void* buffer, rt_size_t size)
 {
@@ -174,6 +177,7 @@ static rt_size_t rt_serial_write (rt_device_t dev, rt_off_t pos, const void* buf
 		/* interrupt mode Tx, does not support */
 		RT_ASSERT(0);
 	}
+#ifdef USART_DMA_MODE
 	else if (dev->flag & RT_DEVICE_FLAG_DMA_TX)
 	{
 		/* DMA mode Tx */
@@ -220,6 +224,7 @@ static rt_size_t rt_serial_write (rt_device_t dev, rt_off_t pos, const void* buf
 			rt_hw_interrupt_enable(level);
 		}
 	}
+#endif
 	else
 	{
 		/* polling mode */
@@ -373,6 +378,7 @@ void rt_hw_serial_isr(rt_device_t device)
 	}
 }
 
+#ifdef USART_DMA_MODE
 /*
  * ISR for DMA mode Tx
  */
@@ -420,5 +426,5 @@ void rt_hw_serial_dma_tx_isr(rt_device_t device)
 		DMA_Cmd(uart->dma_tx->dma_channel, DISABLE);
 	}
 }
-
+#endif
 /*@}*/

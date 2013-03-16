@@ -144,8 +144,6 @@ void btapp_thread_entry(void* parameter)
 #else
 void btapp_thread_entry(void* parameter)
 {
-    char ch;
-
 	BT_PAIRING_DIS; /* disable standy mode */
 	bt_reset(); 	/* BM57 is reset for the first init */
 
@@ -324,6 +322,7 @@ void btapp_init(void)
 #ifdef RT_USING_FINSH
 #include <finsh.h>
 /* using command line to simulate the input buffer from bluetooth. */
+rt_uint8_t sh_buf[80];
 void cmd_btapp(	rt_uint8_t *packet)
 {
 	int i=0;

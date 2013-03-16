@@ -31,6 +31,8 @@ struct stm32_serial_data_node
 	rt_size_t  data_size;
 	struct stm32_serial_data_node *next, *prev;
 };
+
+#ifdef USART_DMA_MODE
 struct stm32_serial_dma_tx
 {
 	/* DMA Channel */
@@ -44,6 +46,7 @@ struct stm32_serial_dma_tx
 	rt_uint8_t data_node_mem_pool[UART_TX_DMA_NODE_SIZE *
 		(sizeof(struct stm32_serial_data_node) + sizeof(void*))];
 };
+#endif
 
 struct stm32_serial_int_rx
 {
@@ -57,14 +60,17 @@ struct stm32_serial_device
 
 	/* rx structure */
 	struct stm32_serial_int_rx* int_rx;
-
+#ifdef	USART_DMA_MODE
 	/* tx structure */
 	struct stm32_serial_dma_tx* dma_tx;
+#endif
 };
 
 rt_err_t rt_hw_serial_register(rt_device_t device, const char* name, rt_uint32_t flag, struct stm32_serial_device *serial);
 
 void rt_hw_serial_isr(rt_device_t device);
+#ifdef USART_DMA_MODE
 void rt_hw_serial_dma_tx_isr(rt_device_t device);
+#endif
 
 #endif

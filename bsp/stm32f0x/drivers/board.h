@@ -44,12 +44,6 @@
 #endif
 #define STM32_SRAM_END          (0x20000000 + STM32_SRAM_SIZE * 1024)
 
-#define RT_USING_UART1
-#ifdef STM32F051
-#define RT_USING_UART2
-#endif
-//#define RT_USING_UART3
-
 // <o> Console on USART: <0=> no console <1=>USART 1 <2=>USART 2 <3=> USART 3
 // 	<i>Default: 1
 #ifdef STM32F051
@@ -69,6 +63,10 @@ void rt_hw_board_init(void);
 #endif
 
 #define FINSH_DEVICE_NAME   CONSOLE_DEVICE
+
+#ifndef printk
+#define	printk rt_kprintf
+#endif
 
 void rt_hw_usart_init(void);
 

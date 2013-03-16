@@ -38,7 +38,9 @@ struct stm32_serial_device uart1 =
 {
 	USART1,
 	&uart1_int_rx,
+#ifdef USART_DMA_MODE
 	RT_NULL
+#endif
 };
 struct rt_device uart1_device;
 #endif
@@ -49,7 +51,9 @@ struct stm32_serial_device uart2 =
 {
 	USART2,
 	&uart2_int_rx,
+#ifdef USART_DMA_MODE
 	RT_NULL
+#endif
 };
 struct rt_device uart2_device;
 #endif

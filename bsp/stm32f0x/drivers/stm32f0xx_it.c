@@ -76,15 +76,19 @@ void SVC_Handler(void)
   * @param  None
   * @retval None
   */
+
+extern void EXTI0_Enable(rt_uint32_t enable);
+extern rt_sem_t power_key_sem;
+
 void EXTI0_1_IRQHandler(void)
 {
 	/* enter interrupt */
     rt_interrupt_enter();
 	if(EXTI_GetITStatus(EXTI_Line0) != RESET)
 	{
-		/* Toggle LED2 */
-		//STM_EVAL_LEDToggle(LED2);
+		EXTI0_Enable(0);	/* disable power key irq */
 
+ 		rt_sem_release(power_key_sem); /* let bh go */
 		/* Clear the EXTI line 0 pending bit */
 		EXTI_ClearITPendingBit(EXTI_Line0);
 	}
@@ -104,8 +108,6 @@ void EXTI4_15_IRQHandler(void)
     rt_interrupt_enter();
 	if(EXTI_GetITStatus(BT_IND1_EXTI_LINE) != RESET)
 	{
-		/* Toggle LED1 */
-		//STM_EVAL_LEDToggle(LED1);
 		bt_status_update();
 
 		/* Clear the EXTI line 8 pending bit */
@@ -114,8 +116,7 @@ void EXTI4_15_IRQHandler(void)
 
 	if(EXTI_GetITStatus(BT_IND2_EXTI_LINE) != RESET)
 	{
-		/* Toggle LED3 */
-		//STM_EVAL_LEDToggle(LED3);
+
 		bt_status_update();
 		/* Clear the EXTI line 9 pending bit */
 		EXTI_ClearITPendingBit(BT_IND2_EXTI_LINE);
@@ -123,8 +124,6 @@ void EXTI4_15_IRQHandler(void)
 
 	if(EXTI_GetITStatus(EXTI_Line13) != RESET)
 	{
-		/* Toggle LED4 */
-		//STM_EVAL_LEDToggle(LED4);
 
 		/* Clear the EXTI line 13 pending bit */
 		EXTI_ClearITPendingBit(EXTI_Line13);
@@ -156,6 +155,7 @@ void USART1_IRQHandler(void)
 #endif
 }
 
+#ifdef RT_USING_UART2
 /*******************************************************************************
 * Function Name  : USART2_IRQHandler
 * Description    : This function handles USART2 global interrupt request.
@@ -165,7 +165,6 @@ void USART1_IRQHandler(void)
 *******************************************************************************/
 void USART2_IRQHandler(void)
 {
-#ifdef RT_USING_UART2
     extern struct rt_device uart2_device;
 	extern void rt_hw_serial_isr(struct rt_device *device);
 
@@ -176,8 +175,8 @@ void USART2_IRQHandler(void)
 
     /* leave interrupt */
     rt_interrupt_leave();
-#endif
 }
+#endif
 
 /******************************************************************************/
 /*                 STM32F0xx Peripherals Interrupt Handlers                   */
