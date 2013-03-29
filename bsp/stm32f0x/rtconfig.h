@@ -12,7 +12,7 @@
 #define RT_THREAD_PRIORITY_MAX	8
 
 /* Tick per Second */
-#define RT_TICK_PER_SECOND	100
+#define RT_TICK_PER_SECOND	10	//100
 
 /* SECTION: RT_DEBUG */
 /* Thread Debug */
@@ -111,12 +111,17 @@
  * SHIP BUILD config to save rom, sram and pins
  *
  */
+//#define	SHIP_BUILD
 
 #ifdef SHIP_BUILD
 /* reducing the debug code to save the rom size and ram size */
 /* Thread Debug */
 #undef 	RT_DEBUG
 #undef 	RT_THREAD_DEBUG
+
+#undef	RT_TICK_PER_SECOND
+#define RT_TICK_PER_SECOND	10
+
 #undef 	RT_USING_OVERFLOW_CHECK
 #undef 	RT_TIMER_THREAD_STACK_SIZE
 #define RT_TIMER_THREAD_STACK_SIZE	512

@@ -4,7 +4,11 @@
  */
 #ifndef	_H_PROTOCOL_BT_H
 #define	_H_PROTOCOL_BT_H
+#ifdef	LED_PWM_SUPPORTED
+#include "led_pwm.h"
+#else
 #include "led.h"
+#endif
 
 #define	BTP_DeviceInfo			0xC1
 #define	BTP_DeviceManagement	0xC2

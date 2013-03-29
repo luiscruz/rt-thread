@@ -172,12 +172,16 @@ static void power_key_bh(void *param)
 	power_key_sem = rt_sem_create("power_key sem", 0, RT_IPC_FLAG_FIFO); /* bh waits for irq */
 	while(1)
 	{
+		int i;
 		rt_sem_take(power_key_sem, RT_WAITING_FOREVER);/* waits for ISR */
 		printk("power button is pressed\n");
 
 		/* power key IRQ is disabled */
 		if(POWER_KEY_PRESSED){
-			rt_thread_delay(500);	/* 5000ms to debounce */
+			i = 0;
+			while(POWER_KEY_PRESSED && (i++ < 25))
+				rt_thread_delay(RT_TICK_PER_SECOND/5);	/* 5000ms to debounce */
+
 			if(POWER_KEY_PRESSED){	/* power button is down now */
 				//StopMode_Measure();	/*goto stop mode */
 				StandbyMode_Measure();	/* the lowest power state */
@@ -188,6 +192,8 @@ static void power_key_bh(void *param)
 				/* post up event */
 
 				//printf("post power key up\n");
+			}else{
+				printk("power button is released before firing\n");
 			}
 		}
 		//enable power key falling edge trigger again
@@ -206,6 +212,7 @@ void cpu_sleep(void)
 int rt_application_init()
 {
 	rt_err_t result;
+
 	result = rt_thread_init(&tid,
 		"power_key_bh",
 		power_key_bh, RT_NULL,

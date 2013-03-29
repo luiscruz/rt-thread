@@ -11,9 +11,12 @@
  * Date           Author       Notes
  * 2009-01-05     Bernard      the first version
  */
+
 #include <rtthread.h>
 #include <stm32f0xx.h>
 #include "board.h"
+
+#ifndef	LED_PWM_SUPPORTED
 #include "led.h"
 #define	printk	rt_kprintf
 
@@ -21,51 +24,17 @@ rt_timer_t led_timer;
 //static rt_mutex_t led_mux;
 
 struct led_dev leds[] ={
-	{MASK_LED_PHONE,
-	COLOR_RED,
-	LED_PHONE_GPIO_PORT,
-	LED_PHONE_PIN,0,
-	},
-	{MASK_LED_MAIL,
-	COLOR_RED,
-	LED_MAIL_GPIO_PORT,
-	LED_MAIL_PIN,0,
-	},
-	{MASK_LED_SOCIAL,
-	COLOR_RED,
-	LED_SOCIAL_GPIO_PORT,
-	LED_SOCIAL_PIN,0,
-	},
-	{MASK_LED_MISC,
-	COLOR_RED,
-	LED_MISC_GPIO_PORT,
-	LED_MISC_PIN,0,
-	},
-	{MASK_LED_FACE1,
-	COLOR_RED,
-	LED1_FACE_GPIO_PORT,
-	LED1_FACE_PIN,0,
-	},
-	{MASK_LED_FACE2,
-	COLOR_GREEN,
-	LED2_FACE_GPIO_PORT,
-	LED2_FACE_PIN,0,
-	},
-	{MASK_LED_FACE3,
-	COLOR_BLUE,
-	LED3_FACE_GPIO_PORT,
-	LED3_FACE_PIN,0,
-	},
-	{MASK_LED_CROWN,
-	COLOR_RED,
-	LED_CROWN_GPIO_PORT,
-	LED_CROWN_PIN,0,
-	{100, LED_BLINK, 0}}};
+	{LED0_FACE_GPIO_PORT,LED0_FACE_PIN},
+	{LED_CROWN_GPIO_PORT,LED_CROWN_PIN},
+	{LED_PHONE_GPIO_PORT,LED_PHONE_PIN},
+	{LED_MAIL_GPIO_PORT,LED_MAIL_PIN},
+	{LED_SOCIAL_GPIO_PORT,LED_SOCIAL_PIN}
+	};
 
 /* set up led behavior */
 void rt_hw_led(rt_uint8_t led, rt_uint16_t ticks, rt_uint8_t on, rt_uint32_t cnt)
 {
-	if(led > LED_MAX){
+	if(led >= LED_TOTAL){
 		printk("led number %d is not supported\n", led);
 		return;
 	}
@@ -102,7 +71,7 @@ static void led_timer_func(void* parameter)
 	int i;
 	struct led_dev *pled;
 
-	for(i = 0 ; i<= LED_MAX ; i++){/* all leds */
+	for(i = 0 ; i< LED_TOTAL ; i++){/* all leds */
 		/* mutex lock */
 		pled = leds + i;
 		if(pled->mode.on_ratio == 0){
@@ -140,47 +109,36 @@ static void led_timer_func(void* parameter)
 
 void rt_hw_led_init(void)
 {
+	int i;
     GPIO_InitTypeDef GPIO_InitStructure;
 
   	/* GPIOA Periph clock enable */
   	RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA, ENABLE);
 
   	/* Configure  in output pushpull mode */
-#ifdef STM32F051
-  	GPIO_InitStructure.GPIO_Pin = LED1_FACE_PIN | LED_CROWN_PIN |
-  								LED_MAIL_PIN | LED_SOCIAL_PIN;
-#else
-	GPIO_InitStructure.GPIO_Pin = LED1_FACE_PIN | LED2_FACE_PIN | LED3_FACE_PIN |
-								LED_CROWN_PIN | LED_PHONE_PIN | LED_MAIL_PIN |
+	GPIO_InitStructure.GPIO_Pin = LED_PHONE_PIN | LED_MAIL_PIN |
 								LED_SOCIAL_PIN ;
-#endif
+
   	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
   	GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
   	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
   	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
   	GPIO_Init(GPIOA, &GPIO_InitStructure);
 
-#ifdef STM32F051
-  	/* GPIOC Periph clock enable */
-  	RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOC, ENABLE);
-
- 	GPIO_InitStructure.GPIO_Pin = LED2_FACE_PIN | LED3_FACE_PIN | LED_PHONE_PIN;
-  	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
-  	GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-  	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-  	GPIO_Init(GPIOC, &GPIO_InitStructure);
-#endif
-
 	/* GPIOB Periph clock enable */
   	RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOB, ENABLE);
 
- 	GPIO_InitStructure.GPIO_Pin = LED_MISC_PIN ;
+ 	GPIO_InitStructure.GPIO_Pin = LED0_FACE_PIN | LED_CROWN_PIN ;
   	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
   	GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
   	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
   	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
   	GPIO_Init(GPIOB, &GPIO_InitStructure);
+
+  	for(i = LED_FACE ; i <= LED_SOCIAL ; i++){
+		GPIO_SetBits(leds[i].GPIOx, leds[i].GPIO_Pin); /* turn off LEDs */
+		leds[i].set=0;
+	}
 }
 
 void led_init(void)
@@ -220,4 +178,4 @@ void setled(rt_uint8_t led, rt_uint16_t ticks, rt_uint8_t on, rt_uint32_t cnt)
 }
 FINSH_FUNCTION_EXPORT(setled, "setled(led[0-7], ticks[10-], on[0-101], cnt[0-]")
 #endif
-
+#endif

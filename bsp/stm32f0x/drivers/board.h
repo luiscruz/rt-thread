@@ -64,6 +64,9 @@ void rt_hw_board_init(void);
 
 #define FINSH_DEVICE_NAME   CONSOLE_DEVICE
 
+/*Using PWM to control LED*/
+#define	LED_PWM_SUPPORTED
+
 #ifndef printk
 #define	printk rt_kprintf
 #endif

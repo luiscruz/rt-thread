@@ -242,19 +242,20 @@ void bt_hw_init(void)
   	RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA, ENABLE);
 
   	/* Configure  in output pushpull mode */
-	GPIO_InitStructure.GPIO_Pin = BT_PAIRING_PIN | BT_RX_IND_PIN;
+	GPIO_InitStructure.GPIO_Pin = BT_PAIRING_PIN | BT_RX_IND_PIN | BT_RST_N_PIN | BT_WAKEUP_PIN;
 
   	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
   	GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
   	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
   	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
   	GPIO_Init(GPIOA, &GPIO_InitStructure);
+	BT_RX_IND_DIS; /* pull high to disable RX_IND, because it makes bt module can't enter low power mode*/
 
-  	/* GPIOA Periph clock enable */
+  	/* GPIOB Periph clock enable */
   	RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOB, ENABLE);
 
   	/* Configure  in output pushpull mode */
-	GPIO_InitStructure.GPIO_Pin = BT_RST_N_PIN | BT_WAKEUP_PIN|BT_PAIRING_PIN;
+	GPIO_InitStructure.GPIO_Pin = BT_PAIRING_PIN;
 
   	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
   	GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
@@ -262,7 +263,7 @@ void bt_hw_init(void)
   	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
   	GPIO_Init(GPIOB, &GPIO_InitStructure);
 
-	////////////////
+	/*input pins*/
   	GPIO_InitStructure.GPIO_Pin = BT_IND1_PIN | BT_IND2_PIN;
   	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
   	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;

@@ -408,6 +408,11 @@
               <FileType>1</FileType>
               <FilePath>.\applications\led.c</FilePath>
             </File>
+            <File>
+              <FileName>led_pwm.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\applications\led_pwm.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

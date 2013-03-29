@@ -44,7 +44,9 @@ static void parsing_led_command(rt_uint8_t *buf, rt_uint8_t len)
 	printk("\n");
 
 	rt_memcpy(&led, buf, len);
-	rt_hw_led(led.led, led.mode.ticks, led.mode.on_ratio, led.mode.cnt);
+#ifdef	LED_PWM_SUPPORTED
+	set_hw_led(led.led, led.mode.period, led.mode.duty, led.mode.cnt);
+#endif
 }
 
 /* scan a byte from bt or a finsh command line */
@@ -64,7 +66,7 @@ static rt_size_t scan_buffer(struct btapp_dev *dev,
 		rt_size_t s=0,r=0;
 		int i;
 		buf = (rt_uint8_t *)buffer;
-		//printk(">>>read %d bytes\n",size);
+		printk(">>>read %d bytes\n",size);
 		do{
 			/* wait receive */
 			if (rt_sem_take(&(dev->rx_sem), RT_WAITING_FOREVER) != RT_EOK) continue;
@@ -74,34 +76,38 @@ static rt_size_t scan_buffer(struct btapp_dev *dev,
 			s+=r;
 			for(i = 0; i < r; i ++)
 				printk("0x%02x %c ", buf[i], buf[i]);
-			//printk("\n(%d, %d,%d)<<<<\n",r, s, size);
+			printk("\n(%d, %d,%d)<<<<\n",r, s, size);
 			if(s < size){
 				buf = (rt_uint8_t *)buffer + s;
 			}else break;
 		}while(s<size);
-		//printk("<<<%d bytes read\n",s);
+		printk("<<<%d bytes read\n",s);
 		return s;
 	}
 }
 
+/*
+packet :
+0xC1 0x27 0x0002 0x0001 01 0xer 0xck
+*/
 static int write_led_resp(struct btapp_dev *dev, rt_uint8_t err)
 {
 	rt_uint8_t cks=0;
 	rt_uint8_t *p;
-	BTP_RESP btp;
+	BTP_RESP btpr;
 	int i;
 	printk("write_led_resp %d\n", err);
-	rt_memset(&btp, 0, sizeof(BTP_RESP));
-	btp.start=BTP_DeviceInfo;
-	btp.rw=BTP_WRITE;
-	btp.cmd=0x0002;
-	btp.idx=0x0001;
-	btp.len=1;
-	btp.err = err;
-	p = (rt_uint8_t *)&btp;
+	rt_memset(&btpr, 0, sizeof(BTP_RESP));
+	btpr.start=BTP_DeviceInfo;
+	btpr.rw=BTP_WRITE;
+	btpr.cmd=0x0002;
+	btpr.idx=0x0001;
+	btpr.len=1;
+	btpr.err = err;
+	p = (rt_uint8_t *)&btpr;
 	for(i = 0; i < sizeof(BTP_RESP) - 1; i++)
 		cks += p[i];
-	btp.checksum = cks;
+	btpr.checksum = cks;
 	for(i = 0; i < sizeof(BTP_RESP); i++){
 		printk("0x%x ",p[i]);
 	}
@@ -111,6 +117,10 @@ static int write_led_resp(struct btapp_dev *dev, rt_uint8_t err)
 	return 0;
 }
 
+/*
+ command packet
+ 0xC1 0x26 0x0002 0x0001 0xll 0x0l 0xpp 0xdd 0xcccccccc 0xck
+*/
 int process_led_command(struct btapp_dev *dev)
 {
 	char ch;
