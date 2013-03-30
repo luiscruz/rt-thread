@@ -120,5 +120,7 @@ struct btapp_dev
 void btapp_init(void);
 void btapp_set_device(const char* device_name);
 const char* btapp_get_device(void);
+rt_int8_t bm57_rx_prep(rt_int8_t on);
+rt_int8_t bm57_tx_prep(void);
 
 #endif

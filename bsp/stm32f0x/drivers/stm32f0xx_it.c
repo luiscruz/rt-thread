@@ -36,6 +36,7 @@
 /** @addtogroup STM32F0-Discovery_Demo
   * @{
   */
+extern rt_uint8_t pm_sleep_cnt;
 
 /** @addtogroup STM32F0XX_IT
   * @brief Interrupts driver modules
@@ -106,6 +107,7 @@ void EXTI4_15_IRQHandler(void)
 	extern void bt_status_update(void);
 	/* enter interrupt */
     rt_interrupt_enter();
+    pm_sleep_cnt = 0;
 	if(EXTI_GetITStatus(BT_IND1_EXTI_LINE) != RESET)
 	{
 		bt_status_update();
@@ -147,7 +149,7 @@ void USART1_IRQHandler(void)
 
     /* enter interrupt */
     rt_interrupt_enter();
-
+	pm_sleep_cnt = 0;
     rt_hw_serial_isr(&uart1_device);
 
     /* leave interrupt */
@@ -170,7 +172,7 @@ void USART2_IRQHandler(void)
 
     /* enter interrupt */
     rt_interrupt_enter();
-
+	//pm_sleep_cnt = 0;
     rt_hw_serial_isr(&uart2_device);
 
     /* leave interrupt */

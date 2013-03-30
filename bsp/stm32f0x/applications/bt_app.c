@@ -72,15 +72,16 @@ BT_STATUS bt_status_update(void)
 static void bt_reset(void)
 {
 	BT_RESET_EN;
-	rt_thread_delay(1);
+	//rt_thread_delay(RT_TIMER_TICK_PER_SECOND);
+	board_delay_ms(2);
 	BT_RESET_DIS;
-	rt_thread_delay(49);
+	rt_thread_delay(RT_TIMER_TICK_PER_SECOND>>1);
 }
 
 static void bt_standby(void)
 {
 	BT_PAIRING_EN;
-	rt_thread_delay(25);
+	rt_thread_delay(RT_TIMER_TICK_PER_SECOND>>2);
 	BT_PAIRING_DIS;
 }
 
@@ -91,6 +92,33 @@ static void bt_resume(void)
 	BT_WAKEUP_EN;
 	rt_thread_delay(10);
 	BT_WAKEUP_DIS;
+}
+
+rt_int8_t bm57_rx_prep(rt_int8_t on)
+{
+	if(bt_stat > BT_LINK_TX) {
+		printk("bm57_rx_prep err %d\n", bt_stat);
+		return -1;
+	}
+	if(on){
+		BT_RX_IND_EN;
+		//delay 2ms to wait for bm57 ready to receive from mcu
+		board_delay_ms(1);
+	}else{BT_RX_IND_DIS;}
+	return 0;
+}
+
+rt_int8_t bm57_tx_prep(void)
+{
+	rt_int16_t cnt=0;
+	rt_int8_t ret=-1;
+
+	while( (cnt++<1000) && (bt_stat != BT_LINK_TX));
+	if(bt_stat == BT_LINK_TX) ret = 0;
+	else
+		printk("bm57_tx_prep failure %d\n", bt_stat);
+
+	return ret;
 }
 
 static rt_err_t btapp_rx_ind(rt_device_t dev, rt_size_t size)
@@ -124,84 +152,15 @@ void btapp_set_device(const char* device_name)
 	}
 }
 
-#if 0
-void btapp_thread_entry(void* parameter)
-{
-    char ch;
-
-	BT_PAIRING_DIS; /* disable standy mode */
-	bt_reset(); 	/* BM57 is reset for the first init */
-
-	while (1){
-		/* wait receive */
-		//if (rt_sem_take(&bt_dev.rx_sem, RT_WAITING_FOREVER) != RT_EOK) continue;
-
-		/* read header from device */
-		scan_buffer(bt_dev.device, &ch, 7);
-		//printk("0x%02x %c ", ch, ch);
-	}
-}
-#else
 void btapp_thread_entry(void* parameter)
 {
 	BT_PAIRING_DIS; /* disable standy mode */
 	bt_reset(); 	/* BM57 is reset for the first init */
 
 	while (1){
-#if 1
 			process_led_command((struct btapp_dev *)parameter);
-#else
-		/* wait receive */
-		//if (rt_sem_take(&bt_dev.rx_sem, RT_WAITING_FOREVER) != RT_EOK) continue;
-
-		/* read header from device */
-		if( (scan_buffer(bt_dev.device, &ch, 1) == 1) &&
-			(btp_h_valid(ch))) { /* valid commands */
-			BTP_HEADER btp_h;
-			rt_uint8_t *ptr = (rt_uint8_t *)&btp_h;
-			*ptr++ = ch;
-			if(scan_buffer(bt_dev.device, ptr, BTP_HEAD_SIZE -1 )
-				== (BTP_HEAD_SIZE-1 ) ) {/* rest of the header*/
-				//printk("header 1\n");
-				if(checkbtp_header(&btp_h))	{
-					/* parsing header and read the content*/
-					rt_uint8_t buf[MAX_BTP_LEN];
-					//printk("header 2\n");
-					if(scan_buffer(bt_dev.device, buf, btp_h.len )
-						!= btp_h.len ){
-						printk("read content failure\n");
-						continue;
-					}else{
-						rt_uint8_t i, cks;
-						//checksum
-						//printk("header 3\n");
-						cks = 0;
-						for(i = 0; i < BTP_HEAD_SIZE; i++) cks+= ptr[i];
-						for(i = 0; i < btp_h.len-1; i ++) cks+= buf[i];
-						printk("checksum(0x%x,0x%x)\n", cks, buf[i]);
-						if(cks == buf[i] ){
-							//parsing it
-							parsing_led_command(buf, btp_h.len );
-
-							printk("OK\n");
-						}else{
-							printk("error checksum\n");
-							continue;
-						}
-					}
-				}else{
-					printk("bad header\n");
-				}
-			}else{
-				printk("read header failure\n");
-			}
-		}else{
-			printk("read start code failure\n");
-		}/* end of device read */
-#endif
 	}
 }
-#endif
 
 /*
 output pins

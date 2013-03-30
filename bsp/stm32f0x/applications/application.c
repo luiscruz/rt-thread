@@ -24,6 +24,8 @@
 #include "bt_app.h"
 #include "led.h"
 
+#define	PM_ENTER_DEEP_SLEEP_COUNTS	5
+
 #define	PB_THREAD_PRIORITY
 static struct rt_thread tid;
 ALIGN(RT_ALIGN_SIZE)
@@ -31,6 +33,8 @@ static char bh_thread_stack[256];
 
 /* active high, 10K pull low, 10k pull high */
 #define	POWER_KEY_PRESSED		GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_0)
+
+rt_uint8_t pm_sleep_cnt;
 
 void EXTI0_Enable(rt_uint32_t enable)
 {
@@ -205,8 +209,13 @@ static void power_key_bh(void *param)
 void cpu_sleep(void)
 {
 	/* check if usart is working, if so, don't sleep to prevent lose data */
-	if(USART_GetITStatus(USART1, USART_IT_RXNE) == RESET)
-		PWR_EnterSleepMode(PWR_SLEEPEntry_WFI);
+	if(USART_GetITStatus(USART1, USART_IT_RXNE) == RESET){
+		if(pm_sleep_cnt < PM_ENTER_DEEP_SLEEP_COUNTS){
+			pm_sleep_cnt ++;
+			PWR_EnterSleepMode(PWR_SLEEPEntry_WFI);
+		}else
+			PWR_EnterSleepMode(PWR_SLEEPEntry_WFI);
+	}
 }
 
 int rt_application_init()

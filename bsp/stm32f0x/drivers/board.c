@@ -23,6 +23,17 @@
 
 /*@{*/
 
+/* 48mhz
+ * assuming 1 instruction 1 clock, so 48K loop is 1ms
+ */
+void board_delay_ms(rt_uint32_t ms)
+{
+	rt_uint16_t cnt;
+
+	while(ms --)
+		for(cnt=0;cnt<48000;cnt++);	/* 1ms */
+}
+
 /*******************************************************************************
 * Function Name  : NVIC_Configuration
 * Description    : Configures Vector Table base location.

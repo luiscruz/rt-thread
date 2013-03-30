@@ -84,6 +84,8 @@ static rt_size_t rt_serial_read (rt_device_t dev, rt_off_t pos, void* buffer, rt
 	err_code = RT_EOK;
 	uart = (struct stm32_serial_device*)dev->user_data;
 
+	if(uart->uart_device == USART1)
+		bm57_tx_prep();  /*waiting for bm57 ready to send*/
 	if (dev->flag & RT_DEVICE_FLAG_INT_RX)
 	{
 		//rt_kprintf("\n(%d) ",size);
@@ -172,6 +174,8 @@ static rt_size_t rt_serial_write (rt_device_t dev, rt_off_t pos, const void* buf
 	ptr = (rt_uint8_t*)buffer;
 	uart = (struct stm32_serial_device*)dev->user_data;
 
+	if(uart->uart_device == USART1)
+		bm57_rx_prep(1);
 	if (dev->flag & RT_DEVICE_FLAG_INT_TX)
 	{
 		/* interrupt mode Tx, does not support */
@@ -260,7 +264,8 @@ static rt_size_t rt_serial_write (rt_device_t dev, rt_off_t pos, const void* buf
 
 	/* set error code */
 	rt_set_errno(err_code);
-
+	if(uart->uart_device == USART1)
+		bm57_rx_prep(0);
 	return (rt_uint32_t)ptr - (rt_uint32_t)buffer;
 }
 

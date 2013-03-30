@@ -75,6 +75,7 @@ void rt_hw_usart_init(void);
 
 /* SD Card init function */
 void rt_hw_msd_init(void);
+void board_delay_ms(rt_uint32_t ms);
 
 #endif
 

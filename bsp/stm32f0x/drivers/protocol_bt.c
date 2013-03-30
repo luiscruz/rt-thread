@@ -55,8 +55,8 @@ static rt_size_t scan_buffer(struct btapp_dev *dev,
                          rt_size_t   size)
 {
 #ifdef RT_USING_FINSH
-	static rt_uint8_t sh_buf[80];
-/*	if(check finsh commnd line first){
+/*	static rt_uint8_t sh_buf[80];
+	if(check finsh commnd line first){
 		return size bytes from finsh buffer;
 		{
 	else*/
