@@ -61,7 +61,7 @@
 #define RT_USING_DEVICE
 
 //#define	USART_DMA_MODE
-/* USART debug port: PA9,PA10 */
+/* PA9,PA10 for BT module */
 #define RT_USING_UART1
 
 /* SECTION: Console options */
@@ -71,7 +71,7 @@
 #define RT_USING_CONSOLE
 #endif
 /* the buffer size of console*/
-#define RT_CONSOLEBUF_SIZE	128
+#define RT_CONSOLEBUF_SIZE	64
 
 /* SECTION: finsh, a C-Express shell */
 #ifdef STM32F051

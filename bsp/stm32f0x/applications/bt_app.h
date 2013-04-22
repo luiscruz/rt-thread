@@ -23,8 +23,11 @@
 #define BTAPP_THREAD_PRIORITY (RT_THREAD_PRIORITY_MAX/2)	//(RT_THREAD_PRIORITY_MAX>>3)
 #endif
 
-#ifndef BTAPP_THREAD_STACK_SIZE
-#define BTAPP_THREAD_STACK_SIZE 512	//1024
+#ifndef BTAPP_THREAD_QUEUE_STACK_SIZE
+#define BTAPP_THREAD_QUEUE_STACK_SIZE 128
+#endif
+#ifndef BTAPP_THREAD_PARSER_STACK_SIZE
+#define BTAPP_THREAD_PARSER_STACK_SIZE 256
 #endif
 
 #define BTAPP_CMD_SIZE		80
@@ -122,5 +125,7 @@ void btapp_set_device(const char* device_name);
 const char* btapp_get_device(void);
 rt_int8_t bm57_rx_prep(rt_int8_t on);
 rt_int8_t bm57_tx_prep(void);
+rt_uint8_t read_bt(rt_uint8_t size, rt_uint8_t *buf);
+rt_int8_t bt_findme(rt_uint8_t findme);
 
 #endif

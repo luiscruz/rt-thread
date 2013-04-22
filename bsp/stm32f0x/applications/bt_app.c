@@ -14,20 +14,29 @@
 
 #include <rtthread.h>
 #include <rthw.h>
+#include <rtdevice.h>
 #include <stm32f0xx.h>
 #include "board.h"
 #include "bt_app.h"
-#include "protocol_bt.h"
+//#include "protocol_bt.h"
+#include "bt_parser.h"
 
 #define	printk	rt_kprintf
+#define BT_RX_BUFSIZE          (64)
 
 struct btapp_dev bt_dev;
 BT_STATUS bt_stat = BT_SHUTDOWN;
 
 /* btapp thread */
-static struct rt_thread btapp_thread;
+static struct rt_thread btapp_qt, btapp_pt;
 ALIGN(RT_ALIGN_SIZE)
-static char btapp_thread_stack[BTAPP_THREAD_STACK_SIZE];
+static char btapp_qt_stack[BTAPP_THREAD_QUEUE_STACK_SIZE];
+static char btapp_pt_stack[BTAPP_THREAD_PARSER_STACK_SIZE];
+
+/* ring buffer */
+static struct rt_semaphore free_space, stored_data;
+static rt_uint8_t rx_pool[BT_RX_BUFSIZE];
+static struct rt_ringbuffer rx_ringbuffer;
 
 static void dump_stat(BT_STATUS st)
 {
@@ -121,12 +130,35 @@ rt_int8_t bm57_tx_prep(void)
 	return ret;
 }
 
+static rt_size_t rx_size;
 static rt_err_t btapp_rx_ind(rt_device_t dev, rt_size_t size)
 {
 	/* release semaphore to let btapp thread rx data */
+	rx_size = size;
 	rt_sem_release(&bt_dev.rx_sem);
 	//printk("\nrx_ind: %d\n", size);
 	return RT_EOK;
+}
+
+/* ring buffer */
+static void bt_producer_t(struct btapp_dev *dev)
+{
+	rt_uint8_t ch;
+	rt_size_t s=0, r;
+
+	while(1){
+		/* wait receive from USART */
+		if (rt_sem_take(&(dev->rx_sem), RT_WAITING_FOREVER) != RT_EOK) continue;
+		s = rx_size; /* received bytes in RX buffer */
+		/* ring buffer */
+		while(s --){
+			if (rt_sem_take(&free_space, RT_WAITING_FOREVER) != RT_EOK) continue;
+			r = rt_device_read(dev->device, 0, &ch, 1);
+			//if(r != 1) break;
+			rt_ringbuffer_putchar(&rx_ringbuffer, ch);
+			rt_sem_release(&stored_data);
+		}
+	}
 }
 
 /**
@@ -152,13 +184,75 @@ void btapp_set_device(const char* device_name)
 	}
 }
 
-void btapp_thread_entry(void* parameter)
+rt_uint8_t read_bt(rt_uint8_t size, rt_uint8_t *buf)
 {
+	int i=0;
+	rt_uint8_t ch;
+	/* bluetooth buffer is a circular queue */
+	while(size--){
+		if (rt_sem_take(&stored_data, RT_WAITING_FOREVER) != RT_EOK) return 0;
+    	rt_ringbuffer_getchar(&rx_ringbuffer, &ch);
+    	buf[i++] = ch;
+		rt_sem_release(&free_space);
+	}
+	return i;
+}
+
+/*
+packet :
+0xC1 0x27 0x0002 0x0001 01 0xer 0xck
+*/
+
+
+static int bt_resp(rt_uint8_t sig, rt_uint8_t rc)
+{
+	rt_uint8_t cks=0;
+	rt_uint8_t *p;
+	struct _resp_pkt resp;
+	int i;
+
+	printk("bt_resp %d\n", rc);
+	rt_memset(&resp, 0, sizeof(resp));
+	resp.sig = HEAD_SIG1 | (sig << 8);
+	resp.len = sizeof (resp) - sizeof(resp.sig) - sizeof(resp.len);
+	resp.rc = rc;
+	p = (rt_uint8_t *)&resp;
+	for(i = 0; i < sizeof(resp) - 1; i++)
+		cks += p[i];
+	resp.checksum = cks;
+	for(i = 0; i < sizeof(resp); i++){
+		printk("0x%x ",p[i]);
+	}
+	printk("\n");
+	/*Response command: 0x55 0xA? len rr rr checksum */
+	rt_device_write(bt_dev.device, 0, p, sizeof(resp));
+	return 0;
+}
+
+rt_int8_t bt_findme(rt_uint8_t findme)
+{
+	return bt_resp(HEAD_FINDME, findme);
+}
+
+rt_int8_t bt_led_resp(rt_uint8_t err)
+{
+	return bt_resp(HEAD_RESP, err);
+}
+
+/* processing commands from BT module */
+void bt_consumer_t(void* parameter)
+{
+	rt_int8_t ret;
 	BT_PAIRING_DIS; /* disable standy mode */
 	bt_reset(); 	/* BM57 is reset for the first init */
 
 	while (1){
-			process_led_command((struct btapp_dev *)parameter);
+#ifdef	LED_PWM_SUPPORTED
+		ret = btcmd_paser();
+		bt_led_resp(ret);
+#else
+		process_led_command((struct btapp_dev *)parameter);
+#endif
 	}
 }
 
@@ -266,15 +360,28 @@ void btapp_init(void)
 
 	bt_hw_init();
 
-	rt_sem_init(&bt_dev.rx_sem, "bt_rx", 0, 0);
-	result = rt_thread_init(&btapp_thread,
-		"btapp",
-		btapp_thread_entry, (void *)&bt_dev,
-		&btapp_thread_stack[0], sizeof(btapp_thread_stack),
-		BTAPP_THREAD_PRIORITY, 10);
+    /* initialize ring buffer */
+    rt_sem_init(&free_space, "bt_free", BT_RX_BUFSIZE, 0);
+    rt_sem_init(&stored_data, "bt_stored", 0, 0);
+    rt_ringbuffer_init(&rx_ringbuffer, rx_pool, BT_RX_BUFSIZE);
 
+	rt_sem_init(&bt_dev.rx_sem, "bt_rx", 0, 0);
+
+	result = rt_thread_init(&btapp_qt,
+		"bt_qt",
+		bt_producer_t, (void *)&bt_dev,
+		&btapp_qt_stack[0], sizeof(btapp_qt_stack),
+		BTAPP_THREAD_PRIORITY, 10);
 	if (result == RT_EOK)
-		rt_thread_startup(&btapp_thread);
+		rt_thread_startup(&btapp_qt);
+
+	result = rt_thread_init(&btapp_pt,
+		"bt_pt",
+		bt_consumer_t, (void *)&bt_dev,
+		&btapp_pt_stack[0], sizeof(btapp_pt_stack),
+		BTAPP_THREAD_PRIORITY, 10);
+	if (result == RT_EOK)
+		rt_thread_startup(&btapp_pt);
 
 	btapp_set_device(BTSPP_DEVICE); /*release semaphore to make read thread go */
 }

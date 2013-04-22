@@ -32,6 +32,7 @@
 #include <rtthread.h>
 #include "board.h"
 #include "bt_app.h"
+#include "led_pwm.h"
 
 /** @addtogroup STM32F0-Discovery_Demo
   * @{
@@ -179,6 +180,106 @@ void USART2_IRQHandler(void)
     rt_interrupt_leave();
 }
 #endif
+
+extern struct led_dev *leds;
+/* config pwm timer again after the first blink
+ * PA1	"face_led LED0"		TIM2_CH2
+ * PA6	"phone_led LED2"	TIM16_CH1
+ * PA7	"mail_led LED3"		TIM17_CH1
+ * PB0	"social_led LED4"	TIM3_CH3
+ * PB1	"crown_led LED1"	TIM14_CH1
+ */
+
+/**
+  * @brief  This function handles TIM2 global interrupt request.
+  * @param  None
+  * @retval None
+  */
+void TIM2_IRQHandler(void)
+{
+	isr_update_pwm(LED_FACE);
+
+  /* TIM3_CH2 toggling with frequency = 1171.8 Hz */
+  /*
+  if (TIM_GetITStatus(TIM2, TIM_IT_CC2) != RESET)
+  {
+    TIM_ClearITPendingBit(TIM2, TIM_IT_CC2);
+    capture = TIM_GetCapture2(TIM2);
+    TIM_SetCompare2(TIM2, capture + CCR2_Val);
+  }*/
+
+}
+
+/**
+  * @brief  This function handles TIM3 global interrupt request.
+  * @param  None
+  * @retval None
+  */
+void TIM3_IRQHandler(void)
+{
+	isr_update_pwm(LED_SOCIAL);
+  /* TIM3_CH3 toggling with frequency = 2343.75 Hz */
+  /*if (TIM_GetITStatus(TIM3, TIM_IT_CC3) != RESET)
+  {
+    TIM_ClearITPendingBit(TIM3, TIM_IT_CC3);
+    capture = TIM_GetCapture3(TIM3);
+    TIM_SetCompare3(TIM3, capture + CCR3_Val);
+  }*/
+
+}
+
+/**
+  * @brief  This function handles TIM3 global interrupt request.
+  * @param  None
+  * @retval None
+  */
+void TIM14_IRQHandler(void)
+{
+	isr_update_pwm(LED_CROWN);
+  /* TIM14_CH1 toggling with frequency = 585.9 Hz */
+  /*if (TIM_GetITStatus(TIM14, TIM_IT_CC1) != RESET)
+  {
+    TIM_ClearITPendingBit(TIM14, TIM_IT_CC1 );
+    capture = TIM_GetCapture1(TIM14);
+    TIM_SetCompare1(TIM14, capture + CCR1_Val );
+  }*/
+
+}
+
+/**
+  * @brief  This function handles TIM3 global interrupt request.
+  * @param  None
+  * @retval None
+  */
+void TIM16_IRQHandler(void)
+{
+	isr_update_pwm(LED_PHONE);
+  /* TIM16_CH1 toggling with frequency = 585.9 Hz */
+  /*if (TIM_GetITStatus(TIM16, TIM_IT_CC1) != RESET)
+  {
+    TIM_ClearITPendingBit(TIM16, TIM_IT_CC1 );
+    capture = TIM_GetCapture1(TIM16);
+    TIM_SetCompare1(TIM3, capture + CCR1_Val );
+  }*/
+}
+
+/**
+  * @brief  This function handles TIM3 global interrupt request.
+  * @param  None
+  * @retval None
+  */
+void TIM17_IRQHandler(void)
+{
+	isr_update_pwm(LED_MAIL);
+  /* TIM17_CH1 toggling with frequency = 585.9 Hz */
+  /*if (TIM_GetITStatus(TIM17, TIM_IT_CC1) != RESET)
+  {
+    TIM_ClearITPendingBit(TIM17, TIM_IT_CC1 );
+    capture = TIM_GetCapture1(TIM17);
+    TIM_SetCompare1(TIM17, capture + CCR1_Val );
+  }*/
+
+}
 
 /******************************************************************************/
 /*                 STM32F0xx Peripherals Interrupt Handlers                   */

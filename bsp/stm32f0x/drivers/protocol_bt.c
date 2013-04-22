@@ -2,6 +2,8 @@
 #include <rthw.h>
 
 #include "board.h"
+
+#ifndef	LED_PWM_SUPPORTED
 #include "bt_app.h"
 #include "protocol_bt.h"
 #define	printk	rt_kprintf
@@ -181,3 +183,5 @@ int process_led_command(struct btapp_dev *dev)
 	}/* end of device read */
 	return 0;
 }
+#endif
+

@@ -141,6 +141,10 @@ static void GPIO_Configuration(void)
   /* Connect PXx to USARTx_Rx */
   GPIO_PinAFConfig(COM_RX_PORT[0], COM_RX_PIN_SOURCE[0], COM_RX_AF[0]);
 
+  /* CTS, RTS for 32 pins and above */
+  GPIO_PinAFConfig(EVAL_COM1_CTS_GPIO_PORT, EVAL_COM1_CTS_PIN, EVAL_COM1_CTS_AF);
+  GPIO_PinAFConfig(EVAL_COM1_RTS_GPIO_PORT, EVAL_COM1_RTS_PIN, EVAL_COM1_RTS_AF);
+
   /* Configure USART Tx as alternate function push-pull */
   GPIO_InitStructure.GPIO_Pin = COM_TX_PIN[0];
   GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
@@ -152,6 +156,12 @@ static void GPIO_Configuration(void)
   /* Configure USART Rx as alternate function push-pull */
   GPIO_InitStructure.GPIO_Pin = COM_RX_PIN[0];
   GPIO_Init(COM_RX_PORT[0], &GPIO_InitStructure);
+
+  /* Configure USART CTS,RTS as alternate function push-pull for 32pins and above */
+  GPIO_InitStructure.GPIO_Pin = EVAL_COM1_CTS_PIN;
+  GPIO_Init(EVAL_COM1_CTS_GPIO_PORT, &GPIO_InitStructure);
+  GPIO_InitStructure.GPIO_Pin = EVAL_COM1_RTS_PIN;
+  GPIO_Init(EVAL_COM1_RTS_GPIO_PORT, &GPIO_InitStructure);
 #endif
 
 #ifdef RT_USING_UART2
@@ -274,12 +284,21 @@ void rt_hw_usart_init()
 
 	/* uart init */
 #ifdef RT_USING_UART1
+#if 0
 	USART_InitStructure.USART_BaudRate = 9600;	/*115200;*/
 	USART_InitStructure.USART_WordLength = USART_WordLength_8b;
 	USART_InitStructure.USART_StopBits = USART_StopBits_1;
 	USART_InitStructure.USART_Parity = USART_Parity_No;
 	USART_InitStructure.USART_HardwareFlowControl = USART_HardwareFlowControl_None;
 	USART_InitStructure.USART_Mode = USART_Mode_Rx | USART_Mode_Tx;
+#else
+	USART_InitStructure.USART_BaudRate = 115200;
+	USART_InitStructure.USART_WordLength = USART_WordLength_8b;
+	USART_InitStructure.USART_StopBits = USART_StopBits_1;
+	USART_InitStructure.USART_Parity = USART_Parity_No;
+	USART_InitStructure.USART_HardwareFlowControl = USART_HardwareFlowControl_RTS_CTS;
+	USART_InitStructure.USART_Mode = USART_Mode_Rx | USART_Mode_Tx;
+#endif
 	USART_Init(COM_USART[0], &USART_InitStructure);
 
 	/* Enable USART1 */

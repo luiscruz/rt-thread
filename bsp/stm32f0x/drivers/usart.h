@@ -45,6 +45,18 @@
 #define EVAL_COM1_RX_SOURCE              GPIO_PinSource10
 #define EVAL_COM1_RX_AF                  GPIO_AF_1
 
+#define EVAL_COM1_CTS_PIN                 GPIO_Pin_11
+#define EVAL_COM1_CTS_GPIO_PORT           GPIOA
+#define EVAL_COM1_CTS_GPIO_CLK            RCC_AHBPeriph_GPIOA
+#define EVAL_COM1_CTS_SOURCE              GPIO_PinSource11
+#define EVAL_COM1_CTS_AF                  GPIO_AF_1
+
+#define EVAL_COM1_RTS_PIN                 GPIO_Pin_12
+#define EVAL_COM1_RTS_GPIO_PORT           GPIOA
+#define EVAL_COM1_RTS_GPIO_CLK            RCC_AHBPeriph_GPIOA
+#define EVAL_COM1_RTS_SOURCE              GPIO_PinSource12
+#define EVAL_COM1_RTS_AF                  GPIO_AF_1
+
 #define EVAL_COM1_IRQn                   USART1_IRQn
 
 #ifdef	STM32F051
